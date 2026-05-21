@@ -1,0 +1,108 @@
+:root {
+  --bg-deep: #1a1410;
+  --bg-warm: #3a2a1f;
+  --bg-card: #5a3f2c;
+  --ink: #f4e4c1;
+  --ink-dim: #c9b58a;
+  --accent: #f0c060;
+  --accent-warm: #e89a4a;
+  --accent-yellow: #ffd84a;
+  --accent-shadow: #8a5a2a;
+  --good: #9acc6a;
+  --soft: rgba(255, 220, 160, 0.08);
+
+  --font-ui: 'Silkscreen', monospace;
+  --font-body: 'VT323', monospace;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background: var(--bg-deep);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 20px;
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+  image-rendering: pixelated;
+}
+
+#app {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(
+      ellipse at center,
+      var(--bg-warm) 0%,
+      var(--bg-deep) 80%
+    );
+}
+
+#scene {
+  display: block;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  background: var(--bg-card);
+  /* Initial scale; canvas.js will set integer-multiple sizing at runtime. */
+  width: min(96vw, 1152px);
+  height: auto;
+  aspect-ratio: 288 / 180;
+  box-shadow:
+    0 0 0 4px var(--accent-shadow),
+    0 0 0 8px var(--bg-deep),
+    0 12px 40px rgba(0, 0, 0, 0.6);
+}
+
+#ui-root {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+#ui-root > * {
+  pointer-events: auto;
+}
+
+/* Phase 0 placeholder banner — removed once Phase 1 lands. */
+.phase0-banner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  color: var(--accent-yellow);
+  text-shadow: 2px 2px 0 var(--bg-deep);
+  letter-spacing: 1px;
+  text-align: center;
+  line-height: 1.6;
+}
+
+.phase0-banner small {
+  display: block;
+  margin-top: 8px;
+  font-family: var(--font-body);
+  font-size: 22px;
+  color: var(--ink-dim);
+  letter-spacing: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
