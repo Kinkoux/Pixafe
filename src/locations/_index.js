@@ -9,13 +9,17 @@ import { rooftop } from './rooftop.js';
  *   {
  *     id: string,                                 // stable id used by Presence payloads
  *     name: string,                               // human-friendly label
- *     drawBackground(ctx, t): void,               // pixel background (t = elapsed ms)
- *     seats: Array<{ x: number, y: number }>,    // avatar slot coords in logical px
+ *     drawBackground(ctx, t): void,               // floor + walls + back furniture (under player)
+ *     drawForeground?(ctx, t): void,              // optional: things drawn ABOVE the player
+ *                                                 //   (hanging lamps, top of tall furniture, etc.)
+ *     spawn: { x, y },                            // where the player appears on entry
+ *     colliders: Array<{ x, y, w, h }>,           // AABB rects the player can't walk through
+ *     seats: Array<{ x: number, y: number }>,    // avatar slot coords (Phase 7 presence)
  *     defaultStation: string,                     // station id used until user overrides
  *     lightingTint: null | { r, g, b, a },        // overlay applied by day/night cycle
  *   }
  *
- * Phase 2 fills in the real drawBackground for Cafe.
+ * Phase 2 fills in the real cafe.
  * Phase 5 fills in Home / Library / Rooftop.
  */
 export const LOCATIONS = [cafe, home, library, rooftop];

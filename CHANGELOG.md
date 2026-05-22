@@ -8,10 +8,40 @@ versions track the build phases from the project plan.
 
 ## [Unreleased]
 
-Planned next: **Phase 2 — Canvas engine + Cafe scene**
-- Pixel cafe interior (counter, seats, specials chalkboard)
-- Animated chibi character sitting at a desk (idle + working loops)
-- Render hook for the future day/night lighting tint
+Planned next: **Phase 3 — Customization**
+- Skin / hair / outfit / accessory picker UI
+- Cozy-pet toggle (sleeping cat on the desk)
+- Persist customization to the user profile
+
+---
+
+## [0.2.0] — 2026-05-22 — Phase 2: Walkable Cafe
+
+### Added
+- **WASD / arrow-key movement** in a top-down 2D world (Stardew / Eastward
+  inspired). Diagonal input is normalised; the dominant axis drives the
+  facing direction so animations don't strobe.
+- **Chibi player sprite** — 14×18 logical pixels, parametric palette
+  (skin / hair / outfit / pants / boots), three base directions (down,
+  up, side) with two walking frames each, side-flipped for left.
+- **Walkable Cafe scene**: warm wood floor with plank grain, counter
+  with espresso machine + cups, padded booth, three desks with steaming
+  cups + back chairs, chalkboard easel, window letting amber light onto
+  the wall, potted plants, and a centred rug. Pendant lamps are drawn in
+  a foreground layer so they pass over the player's head.
+- **AABB collision** against walls + furniture. Axis-separated resolution
+  means the player slides naturally along edges instead of sticking.
+- **Room view HUD**: room-code chip + leave-room button up top, plus a
+  small WASD hint at the bottom.
+- **Splash chibis**: two friendly chibi NPCs stand on the cafe floor
+  beneath the sign so the main menu previews the in-world art style.
+- `Location` interface extended with `spawn`, `colliders`, and an
+  optional `drawForeground(ctx, t)` layer for over-player props.
+
+### Changed
+- Joining or creating a room no longer shows a placeholder banner — the
+  splash hides and the walkable Cafe scene mounts in its place. Leaving
+  the room tears the world down and brings the splash back.
 
 ---
 

@@ -62,7 +62,7 @@ Quick checklist:
 
 - [x] **Phase 0** — Scaffold (Vite, folders, stubs, Supabase client)
 - [x] **Phase 1** — Splash / login (Stardew sign + Minecraft layout, anon auth, create account, room enter/create)
-- [ ] **Phase 2** — Canvas engine + Cafe scene (animated character)
+- [x] **Phase 2** — Canvas engine + Cafe scene (WASD walking, chibi player, collisions)
 - [ ] **Phase 3** — Customization + cozy-pet toggle
 - [ ] **Phase 4** — Pomodoro + status line + growing plant
 - [ ] **Phase 5** — Locations (Home, Library, Rooftop) + switcher

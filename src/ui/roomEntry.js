@@ -1,6 +1,7 @@
 import { openModal, closeModal } from './modal.js';
 import { store } from '../state/store.js';
 import { signInAnonymous } from '../lib/auth.js';
+import { mountRoomView } from './roomView.js';
 
 /**
  * Room code flows. A room code is 4 uppercase letters drawn from a cozy-vibe
@@ -29,32 +30,32 @@ function generateRoomCode() {
   return code;
 }
 
+let unmountRoom = null;
+
 async function landInRoom(code) {
   const { user } = await signInAnonymous();
   store.set({ user, room: { code, hostUserId: user.id } });
   closeModal();
-  showPlaceholderRoomBanner(code);
+  hideSplash();
+  unmountRoom?.();
+  unmountRoom = mountRoomView({
+    code,
+    onLeave() {
+      unmountRoom?.();
+      unmountRoom = null;
+      showSplash();
+    },
+  });
 }
 
-function showPlaceholderRoomBanner(code) {
-  // Phase 2 will replace this with the real cafe scene. For now we just
-  // confirm the room state visually so the user can see the wiring works.
-  const root = document.getElementById('ui-root');
-  const banner = document.createElement('div');
-  banner.className = 'room-placeholder';
-  banner.innerHTML = `
-    <div class="room-placeholder-inner">
-      <p class="room-placeholder-eyebrow">you're in</p>
-      <p class="room-placeholder-code">${code}</p>
-      <p class="room-placeholder-hint">phase 2 will draw the cafe here.</p>
-      <button type="button" class="splash-btn splash-btn--ghost" data-action="leave">leave room</button>
-    </div>
-  `;
-  root.appendChild(banner);
-  banner.querySelector('[data-action="leave"]').addEventListener('click', () => {
-    store.set({ room: null });
-    banner.remove();
-  });
+function hideSplash() {
+  const splash = document.querySelector('.splash-screen');
+  if (splash) splash.classList.add('splash-screen--hidden');
+}
+
+function showSplash() {
+  const splash = document.querySelector('.splash-screen');
+  if (splash) splash.classList.remove('splash-screen--hidden');
 }
 
 export function openEnterRoomModal() {

@@ -14,6 +14,7 @@ const initialState = {
   status: 'in flow',
   stats: { totalFocusMinutes: 0, sessions: 0, streak: 0, coffees: 0 },
   reducedMotion: false,
+  player: null,              // { x, y, direction, locationId } while in a room
 };
 
 let state = { ...initialState };

@@ -1,4 +1,5 @@
 import { LOGICAL_WIDTH, LOGICAL_HEIGHT, onDraw } from '../render/canvas.js';
+import { drawChibi } from '../render/sprite.js';
 
 /**
  * Warm dim cozy cafe interior ambient background for the splash screen.
@@ -154,6 +155,38 @@ function drawFloorPool(ctx) {
   ctx.fillRect(cx - 80, cy - 30, 160, 50);
 }
 
+function drawSplashChibi(ctx) {
+  // A friendly chibi standing in the warm pool below the sign so the main
+  // menu previews the in-game art style.
+  drawChibi(ctx, {
+    x: 116,
+    y: 148,
+    direction: 'down',
+    frame: 0,
+    customization: {
+      skinTone: 'medium',
+      hairColor: '#c06030',
+      outfitColor: '#7a3a5a',
+      pantsColor: '#2a1a10',
+      bootsColor: '#1a0e08',
+    },
+  });
+  // A second chibi for company — co-presence vibe.
+  drawChibi(ctx, {
+    x: 172,
+    y: 152,
+    direction: 'down',
+    frame: 0,
+    customization: {
+      skinTone: 'tan',
+      hairColor: '#3a4a7a',
+      outfitColor: '#3a6a4a',
+      pantsColor: '#2a1a10',
+      bootsColor: '#1a0e08',
+    },
+  });
+}
+
 function buildCachedScene() {
   const off = document.createElement('canvas');
   off.width = LOGICAL_WIDTH;
@@ -167,6 +200,7 @@ function buildCachedScene() {
   drawBooth(c);
   drawChalkboard(c);
   drawFloorPool(c);
+  drawSplashChibi(c);
   drawLamps(c);
 
   return off;
