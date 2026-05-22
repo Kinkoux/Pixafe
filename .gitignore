@@ -1,15 +1,85 @@
+# ─────────────────────────────────────────────────────────────
+#  Pixafé .gitignore — this repo is PUBLIC.
+#  Rule of thumb: if it has credentials, a private key, or local
+#  state, it does not belong here. When in doubt, ignore.
+#  Notes:
+#    - Only the Supabase ANON key ever ships to the client (it's
+#      designed to be public; RLS protects the data).
+#    - The Supabase SERVICE_ROLE key bypasses RLS and must NEVER
+#      appear in this repo or any client-shipped file.
+# ─────────────────────────────────────────────────────────────
+
+# Dependencies & build output
 node_modules/
 dist/
-.env
-.env.local
-.env.*.local
+.vite/
+.cache/
+.parcel-cache/
+.turbo/
+.next/
+.output/
+coverage/
+*.tsbuildinfo
 
-# Editor / OS junk
-.vscode/
-.idea/
-.DS_Store
-Thumbs.db
+# Environment files — keep .env.example tracked, ignore everything else
+.env
+.env.*
+!.env.example
+
+# Secrets, keys, credentials — block by extension
+*.pem
+*.key
+*.cert
+*.crt
+*.csr
+*.p12
+*.pfx
+*.jks
+*.keystore
+
+# Common credential filenames (Google/Firebase/Vercel/AWS/etc.)
+*credentials*.json
+*service-account*.json
+*serviceAccount*.json
+*firebase-adminsdk*.json
+*-private-key.json
+.aws/
+.gcp/
+.vercel/
+.netlify/
+secrets/
+private/
+
+# Database dumps & local data
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+*.sql.backup
+dump.rdb
 
 # Logs
 *.log
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Editor / IDE / OS junk
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+*~
+*.swp
+*.swo
+*.bak
+*.orig
+*.rej
+
+# Claude Code — keep launch.json, ignore personal/local state
+.claude/local/
+.claude/sessions/
+.claude/cache/
