@@ -1,100 +1,184 @@
 import { LOGICAL_WIDTH, LOGICAL_HEIGHT, onDraw } from '../render/canvas.js';
 
 /**
- * Cozy dusk-sky ambient background for the splash screen.
+ * Warm dim cozy cafe interior ambient background for the splash screen.
  *
- * Layers (back → front, all drawn at 288×180 logical):
- *   1. Vertical gradient — deep dusk-purple at top → warm amber near horizon.
- *   2. Procedural twinkling stars scattered in the upper band.
- *   3. Soft horizon glow (subtle warm-light band).
- *   4. Distant rolling hill silhouette so the scene reads as a place.
+ * Reads as a stylised pixel cafe at night — drawn impressionistically with
+ * big silhouettes so it stays legible at 288×180 logical pixels:
+ *   1. Dark warm-brown ceiling + back wall.
+ *   2. Wood floor strip with plank lines.
+ *   3. Booth silhouette on the left + window with warm interior light on the right.
+ *   4. Chalkboard easel silhouette mid-floor.
+ *   5. Three hanging pendant lamps with cords; each one a small bulb plus a
+ *      radial amber glow halo, plus a soft pool of light on the floor below.
  *
- * Returns a function that unregisters the draw callback (called when the
- * splash screen tears down on Phase 2 hand-off).
+ * The scene is fully static — rendered ONCE into an off-screen canvas at
+ * mount time and then blitted on every draw tick. Keeps per-frame work to a
+ * single drawImage call so the splash stays cheap even on slower hardware.
  */
 
-const STAR_COUNT = 36;
-let stars = null;
+const COLORS = {
+  ceiling: '#0e0606',
+  wall: '#1f1208',
+  floor: '#3a2418',
+  floorLine: '#1f1208',
+  booth: '#0a0504',
+  boothTrim: '#2a1810',
+  window: '#d8a040',
+  windowFrame: '#3a2418',
+  chalkboard: '#0a0d0a',
+  chalkboardFrame: '#3a2418',
+  bulb: '#fff4c8',
+  cord: '#1a0e08',
+};
 
-function ensureStars() {
-  if (stars) return;
-  // Stable seed by hashing the position; reproducible across reloads.
-  stars = [];
-  for (let i = 0; i < STAR_COUNT; i++) {
-    const x = pseudoRandom(i * 7 + 1) * LOGICAL_WIDTH;
-    const y = pseudoRandom(i * 11 + 3) * (LOGICAL_HEIGHT * 0.55);
-    const twinkleSpeed = 0.6 + pseudoRandom(i * 13 + 5) * 1.4;
-    const phase = pseudoRandom(i * 17 + 7) * Math.PI * 2;
-    stars.push({ x: Math.floor(x), y: Math.floor(y), twinkleSpeed, phase });
+const LAMPS = [
+  { x: 58, y: 38, glowRadius: 46 },
+  { x: 144, y: 30, glowRadius: 54 },
+  { x: 230, y: 36, glowRadius: 42 },
+];
+
+let cachedCanvas = null;
+
+function drawWalls(ctx) {
+  ctx.fillStyle = COLORS.ceiling;
+  ctx.fillRect(0, 0, LOGICAL_WIDTH, 26);
+  ctx.fillStyle = COLORS.wall;
+  ctx.fillRect(0, 26, LOGICAL_WIDTH, LOGICAL_HEIGHT - 26 - 32);
+}
+
+function drawFloor(ctx) {
+  const floorY = LOGICAL_HEIGHT - 32;
+  ctx.fillStyle = COLORS.floor;
+  ctx.fillRect(0, floorY, LOGICAL_WIDTH, 32);
+  ctx.fillStyle = COLORS.floorLine;
+  for (let y = floorY + 6; y < LOGICAL_HEIGHT; y += 6) {
+    ctx.fillRect(0, y, LOGICAL_WIDTH, 1);
   }
+  const seams = [
+    [22, floorY + 6, 1, 6],
+    [70, floorY + 12, 1, 6],
+    [128, floorY + 6, 1, 6],
+    [186, floorY + 18, 1, 6],
+    [244, floorY + 12, 1, 6],
+  ];
+  for (const [x, y, w, h] of seams) ctx.fillRect(x, y, w, h);
 }
 
-function pseudoRandom(seed) {
-  // Mulberry32-ish, deterministic for given int seed.
-  let t = (seed * 0x6d2b79f5) >>> 0;
-  t = ((t ^ (t >>> 15)) * (t | 1)) >>> 0;
-  t = (t ^ (t + (t ^ (t >>> 7)) * (t | 61))) >>> 0;
-  return ((t ^ (t >>> 14)) >>> 0) / 0xffffffff;
+function drawBooth(ctx) {
+  ctx.fillStyle = COLORS.booth;
+  ctx.fillRect(0, 70, 54, 78);
+  ctx.fillStyle = COLORS.boothTrim;
+  ctx.fillRect(0, 70, 54, 2);
+  ctx.fillStyle = '#1a0e08';
+  ctx.fillRect(0, 120, 60, 16);
+  ctx.fillStyle = COLORS.floor;
+  ctx.fillRect(58, 110, 4, 26);
 }
 
-function drawSky(ctx) {
-  // Vertical gradient. Logical-pixel addressing keeps it crisp.
-  const g = ctx.createLinearGradient(0, 0, 0, LOGICAL_HEIGHT);
-  g.addColorStop(0, '#1c1538');     // deep night above
-  g.addColorStop(0.45, '#4a2a55');  // dusk purple
-  g.addColorStop(0.75, '#a85a3a');  // amber band near horizon
-  g.addColorStop(1, '#3a2418');     // warm dark ground
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
-}
-
-function drawHorizonGlow(ctx) {
-  // Soft warm band centered on horizon (~ y = 130).
-  const g = ctx.createRadialGradient(
-    LOGICAL_WIDTH / 2, 138, 8,
-    LOGICAL_WIDTH / 2, 138, LOGICAL_WIDTH * 0.55
+function drawWindow(ctx) {
+  const x = 214;
+  const y = 70;
+  const w = 60;
+  const h = 44;
+  ctx.fillStyle = COLORS.windowFrame;
+  ctx.fillRect(x - 3, y - 3, w + 6, h + 6);
+  ctx.fillStyle = COLORS.window;
+  ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = COLORS.windowFrame;
+  ctx.fillRect(x + Math.floor(w / 2) - 1, y, 2, h);
+  ctx.fillRect(x, y + Math.floor(h / 2) - 1, w, 2);
+  const halo = ctx.createRadialGradient(
+    x + w / 2, y + h / 2, 4,
+    x + w / 2, y + h / 2, 70
   );
-  g.addColorStop(0, 'rgba(255, 200, 130, 0.55)');
-  g.addColorStop(1, 'rgba(255, 200, 130, 0)');
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 90, LOGICAL_WIDTH, 80);
+  halo.addColorStop(0, 'rgba(255, 180, 80, 0.32)');
+  halo.addColorStop(1, 'rgba(255, 180, 80, 0)');
+  ctx.fillStyle = halo;
+  ctx.fillRect(x - 70, y - 50, w + 140, h + 110);
 }
 
-function drawStars(ctx, t) {
-  ensureStars();
-  ctx.fillStyle = '#f4e4c1';
-  for (const s of stars) {
-    const alpha = 0.45 + 0.55 * Math.abs(Math.sin(t / 1000 * s.twinkleSpeed + s.phase));
-    ctx.globalAlpha = alpha;
-    ctx.fillRect(s.x, s.y, 1, 1);
-  }
-  ctx.globalAlpha = 1;
+function drawChalkboard(ctx) {
+  const x = 168;
+  const y = 130;
+  const w = 28;
+  const h = 22;
+  ctx.fillStyle = COLORS.chalkboardFrame;
+  ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = COLORS.chalkboard;
+  ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
+  ctx.fillStyle = '#d8c8a0';
+  ctx.fillRect(x + 4, y + 6, 16, 1);
+  ctx.fillRect(x + 4, y + 11, 12, 1);
+  ctx.fillRect(x + 4, y + 16, 18, 1);
+  ctx.fillStyle = COLORS.chalkboardFrame;
+  ctx.fillRect(x + 4, y + h, 2, 6);
+  ctx.fillRect(x + w - 6, y + h, 2, 6);
 }
 
-function drawHills(ctx) {
-  // Far hills — a single warm-dark silhouette curve, hand-rolled with line segments.
-  ctx.fillStyle = '#2a1a14';
-  ctx.beginPath();
-  ctx.moveTo(0, LOGICAL_HEIGHT);
-  const baseY = 148;
-  const seed = 5;
-  for (let x = 0; x <= LOGICAL_WIDTH; x += 4) {
-    const wobble =
-      Math.sin((x + seed) * 0.06) * 4 +
-      Math.sin((x + seed) * 0.13) * 2.5;
-    ctx.lineTo(x, Math.floor(baseY + wobble));
+function drawLamps(ctx) {
+  for (const lamp of LAMPS) {
+    ctx.fillStyle = COLORS.cord;
+    ctx.fillRect(lamp.x, 0, 1, lamp.y - 2);
+
+    const halo = ctx.createRadialGradient(
+      lamp.x, lamp.y, 1,
+      lamp.x, lamp.y, lamp.glowRadius
+    );
+    halo.addColorStop(0, 'rgba(255, 200, 110, 0.55)');
+    halo.addColorStop(0.4, 'rgba(255, 160, 60, 0.18)');
+    halo.addColorStop(1, 'rgba(255, 140, 40, 0)');
+    ctx.fillStyle = halo;
+    ctx.fillRect(
+      lamp.x - lamp.glowRadius,
+      lamp.y - lamp.glowRadius,
+      lamp.glowRadius * 2,
+      lamp.glowRadius * 2
+    );
+
+    ctx.fillStyle = '#2a1810';
+    ctx.fillRect(lamp.x - 2, lamp.y - 4, 5, 2);
+    ctx.fillStyle = COLORS.bulb;
+    ctx.fillRect(lamp.x - 1, lamp.y - 2, 3, 4);
+    ctx.fillRect(lamp.x, lamp.y - 3, 1, 1);
   }
-  ctx.lineTo(LOGICAL_WIDTH, LOGICAL_HEIGHT);
-  ctx.closePath();
-  ctx.fill();
+}
+
+function drawFloorPool(ctx) {
+  const cx = LAMPS[1].x;
+  const cy = LOGICAL_HEIGHT - 20;
+  const pool = ctx.createRadialGradient(cx, cy, 4, cx, cy, 80);
+  pool.addColorStop(0, 'rgba(255, 180, 80, 0.18)');
+  pool.addColorStop(1, 'rgba(255, 180, 80, 0)');
+  ctx.fillStyle = pool;
+  ctx.fillRect(cx - 80, cy - 30, 160, 50);
+}
+
+function buildCachedScene() {
+  const off = document.createElement('canvas');
+  off.width = LOGICAL_WIDTH;
+  off.height = LOGICAL_HEIGHT;
+  const c = off.getContext('2d');
+  c.imageSmoothingEnabled = false;
+
+  drawWalls(c);
+  drawWindow(c);
+  drawFloor(c);
+  drawBooth(c);
+  drawChalkboard(c);
+  drawFloorPool(c);
+  drawLamps(c);
+
+  return off;
 }
 
 export function mountSplashBackground() {
-  const off = onDraw((ctx, t) => {
-    drawSky(ctx);
-    drawHorizonGlow(ctx);
-    drawStars(ctx, t);
-    drawHills(ctx);
+  cachedCanvas = buildCachedScene();
+  const off = onDraw((ctx /*, t */) => {
+    ctx.drawImage(cachedCanvas, 0, 0);
   });
-  return off;
+  return () => {
+    off();
+    cachedCanvas = null;
+  };
 }

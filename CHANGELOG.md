@@ -15,10 +15,30 @@ Planned next: **Phase 2 — Canvas engine + Cafe scene**
 
 ---
 
+## [0.1.1] — 2026-05-22 — Splash polish: cozy cafe interior
+
+### Changed
+- Splash background re-themed from outdoor dusk sky to a **warm dim cafe
+  interior at night** — pendant lamps with amber halos, dark wood floor
+  with plank lines, a booth silhouette on the left, a window with warm
+  interior light on the right, and a small chalkboard easel in the corner.
+- Sign no longer carries leaf decorations; instead it hangs from two short
+  rope segments and gets a soft amber halo glow behind it.
+- Static-scene caching: the cafe background is built once into an off-screen
+  canvas and blitted each frame, so the splash is cheap even on slower
+  hardware.
+
+### Fixed
+- Canvas now renders a synchronous frame whenever a draw callback is added,
+  so static scenes paint immediately instead of waiting for the next
+  requestAnimationFrame tick (helps with throttled environments).
+
+---
+
 ## [0.1.0] — 2026-05-22 — Phase 1: Splash & Login
 
 ### Added
-- Stardew-style wooden **PIXAFÉ** sign logo at the top of the splash screen.
+- Wooden **PIXAFÉ** sign logo at the top of the splash screen.
 - Minecraft-style vertical button stack in the center: **Enter Room**,
   **Create Room**, **Create Account**.
 - Rotating yellow splash line (random pick on load, rotated ~-18°, gentle
@@ -28,8 +48,7 @@ Planned next: **Phase 2 — Canvas engine + Cafe scene**
 - **Enter Room** modal — type a 4-letter room code to join.
 - **Create Room** flow — generates a fresh 4-letter code and shows a copy
   button so you can share it with friends.
-- Cozy dusk-sky ambient background drawn on the canvas (procedural twinkling
-  pixel stars + a slow horizon glow).
+- Ambient canvas background drawn at 288×180 logical resolution.
 - Bottom-left version chip (`pixafé 0.1.0 · phase 1`).
 - Reusable lightweight modal helper used by all three flows.
 - Mobile-friendly splash layout (clamped sign width + stacked buttons).

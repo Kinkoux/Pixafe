@@ -4,6 +4,11 @@
  *
  * The visible <canvas id="scene"> is what the page CSS-sizes; we draw the world
  * into an off-screen logical canvas at 288×180 and copy it up with integer scale.
+ *
+ * Frames are normally driven by requestAnimationFrame, but we ALSO render a
+ * synchronous frame whenever a new draw callback is added — that way static
+ * scenes (like the splash) become visible immediately even if rAF is throttled
+ * (background tabs, headless screenshot tools, etc.).
  */
 
 export const LOGICAL_WIDTH = 288;
@@ -42,17 +47,18 @@ function resize() {
   visibleCanvas.width = LOGICAL_WIDTH * scale;
   visibleCanvas.height = LOGICAL_HEIGHT * scale;
   visibleCtx.imageSmoothingEnabled = false;
+  // Re-render so the visible canvas immediately reflects the new dimensions.
+  renderFrame(performance.now() - startedAt);
 }
 
-function loop(now) {
-  rafId = requestAnimationFrame(loop);
-  const t = now - startedAt;
+function renderFrame(t) {
+  if (!logicalCtx || !visibleCtx) return;
 
   // Clear logical buffer.
   logicalCtx.fillStyle = '#1a1410';
   logicalCtx.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
 
-  // Allow registered scenes/avatars to draw.
+  // Run registered scene/avatar draws.
   for (const cb of drawCallbacks) {
     try {
       cb(logicalCtx, t);
@@ -65,21 +71,31 @@ function loop(now) {
   visibleCtx.imageSmoothingEnabled = false;
   visibleCtx.drawImage(
     logicalCanvas,
-    0,
-    0,
-    LOGICAL_WIDTH,
-    LOGICAL_HEIGHT,
-    0,
-    0,
-    visibleCanvas.width,
-    visibleCanvas.height
+    0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT,
+    0, 0, visibleCanvas.width, visibleCanvas.height
   );
+}
+
+function loop(now) {
+  rafId = requestAnimationFrame(loop);
+  renderFrame(now - startedAt);
 }
 
 /** Register a draw callback; returns an unregister function. */
 export function onDraw(cb) {
   drawCallbacks.add(cb);
-  return () => drawCallbacks.delete(cb);
+  // Paint immediately so the change is visible even if rAF doesn't tick
+  // (headless screenshot tools, throttled background tabs, etc.).
+  renderFrame(performance.now() - startedAt);
+  return () => {
+    drawCallbacks.delete(cb);
+    renderFrame(performance.now() - startedAt);
+  };
+}
+
+/** Force an extra frame render (useful for HMR or external state changes). */
+export function kickRender() {
+  renderFrame(performance.now() - startedAt);
 }
 
 export function stopRender() {

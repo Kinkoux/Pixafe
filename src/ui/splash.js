@@ -46,12 +46,12 @@ export function mountSplash(root) {
 
     <div class="splash-logo-wrap">
       <div class="splash-sign" role="img" aria-label="Pixafé">
+        <span class="splash-sign-rope splash-sign-rope--l" aria-hidden="true"></span>
+        <span class="splash-sign-rope splash-sign-rope--r" aria-hidden="true"></span>
         <span class="splash-sign-bolt splash-sign-bolt--tl"></span>
         <span class="splash-sign-bolt splash-sign-bolt--tr"></span>
         <span class="splash-sign-bolt splash-sign-bolt--bl"></span>
         <span class="splash-sign-bolt splash-sign-bolt--br"></span>
-        <span class="splash-sign-leaf splash-sign-leaf--l"></span>
-        <span class="splash-sign-leaf splash-sign-leaf--r"></span>
         <span class="splash-sign-text">PIXAFÉ</span>
         <div class="splash-line" aria-hidden="true">${escapeHtml(splashLine)}</div>
       </div>
