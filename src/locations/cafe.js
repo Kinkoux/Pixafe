@@ -1,405 +1,787 @@
+import {
+  drawDitheredHalo,
+  drawDitheredEllipseShadow,
+  drawCornerVignette,
+  drawDitheredFloorPool,
+} from '../render/dither.js';
+
 /**
- * Pixafé Main Cafe — the central hub location, drawn top-down at 288×180.
+ * Pixafé Main Cafe — top-down with a 3/4 hint of perspective. Every fill is
+ * hand-placed, no smooth gradients. All atmospheric lighting goes through the
+ * dither helpers in src/render/dither.js — never createRadialGradient.
  *
- * Layout (logical pixels, y grows downward):
+ * Composition (logical 288×180):
  *
  *      x:0                                  144                          288
  *  y:0 ┌─────────────────────────────────────────────────────────────────┐
- *      │  CEILING / BACK WALL  ▣ ▣ ▣ ▣ ▣ ▣ ▣ ▣ ▣ ▣ ▣ ▣ ▣ ▣ ▣ ▣ ▣ ▣ ▣ ▣ ▣ │
+ *      │  CEILING band                                                   │
+ *      │  ━━━━━ wall paneling ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ │
+ *      │  [WINDOW]                                COUNTER                │
+ *  y:46│ ━━━━━ skirting board ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ │
  *      │                                                                 │
- *  y:46│ ━━━━━━━━ window ━━━━━━━━━━━━━━━━━━━━━━━━━━ COUNTER ━━━━━━━━━━━ │
- *      │                                                                 │
- *      │  [booth]               [desk]                                   │
- *      │  [booth]                                  [desk]                │
+ *      │  [booth]    [deskA]                                             │
+ *      │  [booth]                       [deskC]                          │
  *      │  [booth]                                                        │
+ *      │                  [deskB]                       [easel]          │
  *      │                                                                 │
- *      │                  [desk]                                  [easel]│
- *      │                                                                 │
- *      │                                                                 │
- *      │                                                                 │
- *  y:170│ wall ─────────────┐         door         ┌──────── wall ────── │
+ *      │  [plant]                                       [plant]          │
+ *  y:168│ wall ─────────┐         DOOR        ┌─────── wall ─────────── │
  *      └──────────────────────────────────────────────────────────────────┘
- *
- * Colliders are kept tight to the player's feet so movement feels natural.
  */
 
-const COLORS = {
+const PALETTE = {
   // walls / ceiling
-  ceiling: '#0e0606',
-  wall: '#2a1810',
+  ceiling: '#080403',
+  ceilingShadow: '#1a0e08',
+  wallA: '#2a1810',
+  wallB: '#341d12',
+  wallSeam: '#180a05',
   wallTrim: '#5a3a1a',
-  wallShadow: '#1a0e08',
+  skirting: '#3a2418',
+  skirtingHighlight: '#5a3a1a',
 
-  // floor
-  floor: '#5a3a1f',
-  floorLight: '#6c4a28',
-  floorLine: '#2a1810',
-  floorSeam: '#3a2418',
+  // floor planks (alternating)
+  plankA: '#5a3a1f',
+  plankAGrain: '#4a2a14',
+  plankAHighlight: '#704728',
+  plankB: '#6a4624',
+  plankBGrain: '#583a1f',
+  plankBHighlight: '#7c5430',
+  plankSeam: '#2a1810',
 
-  // counter
-  counterTop: '#8a5a2a',
-  counterFace: '#3a2418',
-  counterEdge: '#1a0e08',
-  counterShadow: '#1a0e08',
+  // light wood (counter top, desk top)
+  woodLight1: '#b07a4a',
+  woodLight2: '#8a5a2a',
+  woodLight3: '#5a3a1a',
 
-  // booth
-  booth: '#1a0e08',
-  boothTrim: '#3a2418',
-  boothSeat: '#2a1810',
+  // mid wood (apron, counter face)
+  woodMid1: '#6c4626',
+  woodMid2: '#4a2a14',
+  woodMid3: '#2a1810',
 
-  // desk + chair
-  desk: '#8a5a2a',
-  deskTop: '#a87149',
-  deskShadow: '#1a0e08',
-  chair: '#3a2418',
-  chairShadow: '#1a0e08',
+  // dark wood (booth, legs)
+  woodDark1: '#2a1810',
+  woodDark2: '#1a0e08',
+  woodDark3: '#0a0504',
+
+  // booth fabric
+  booth1: '#3a1f1a',
+  booth2: '#26120e',
+  booth3: '#150806',
+  boothCushion1: '#5a2e26',
+  boothCushion2: '#3a1f1a',
 
   // window
-  window: '#d8a040',
-  windowFrame: '#3a2418',
-  windowMullion: '#1a0e08',
+  windowLight: '#fdd07e',
+  windowMid: '#e8a040',
+  windowEdge: '#a85a2a',
+  windowFrame1: '#3a2418',
+  windowFrame2: '#1a0e08',
+
+  // espresso machine
+  machineDark: '#1a0e08',
+  machineMid: '#3a2418',
+  machineHighlight: '#5a3a1a',
+  machineSteel: '#a8a89c',
+
+  // cup colors
+  cupRim1: '#e8a040',
+  cupRim2: '#c06030',
+  cupRim3: '#a85a3a',
+  cupBody: '#5a3a1a',
+  cupBodyShadow: '#3a2418',
+  cupSteam: '#d8c8a0',
 
   // chalkboard
   chalkboard: '#0a0d0a',
-  chalkboardFrame: '#3a2418',
+  chalkboardFrame1: '#3a2418',
+  chalkboardFrame2: '#1a0e08',
   chalk: '#d8c8a0',
 
-  // pendant lamp
-  bulb: '#fff4c8',
-  bulbCore: '#fff8d8',
-  lampCap: '#2a1810',
-  lampCord: '#1a0e08',
+  // plants
+  pot1: '#5a3a1a',
+  pot2: '#3a2418',
+  pot3: '#1a0e08',
+  leafDark: '#2c5028',
+  leafMid: '#3a6a38',
+  leafLight: '#5a8a4a',
+  leafBright: '#7caa64',
+
+  // rug
+  rugBase: '#5a2828',
+  rugBorder: '#d8c08a',
+  rugInner: '#3a1818',
+  rugMotif: '#e8c8a0',
 
   // accents
-  plant: '#3a5a28',
-  plantPot: '#5a3a1a',
-  rug: '#7a3a3a',
-  rugTrim: '#a85a3a',
-  doorDark: '#0a0504',
+  shadow: 'rgba(8, 4, 2, 1)',
+  warmHaloCore: '#fff4c8',
+  warmHaloMid: '#e89a4a',
+  warmHaloFar: '#a85a3a',
+  bulbCore: '#ffeebb',
+  bulbShell: '#3a2418',
+  lampCord: '#1a0e08',
+
+  // door
+  doorDark: '#050302',
   doorJamb: '#1a0e08',
+  doorThreshold: '#2a1810',
+
+  // vignette
+  vignette: 'rgba(0, 0, 0, 1)',
 };
 
 const LAMPS = [
-  { x: 64, y: 30, glowRadius: 38 },
-  { x: 144, y: 26, glowRadius: 46 },
-  { x: 224, y: 30, glowRadius: 38 },
+  { x: 56, y: 32, haloR: 56 },
+  { x: 144, y: 28, haloR: 64 },
+  { x: 232, y: 32, haloR: 56 },
 ];
 
-// Static furniture colliders — tuned to the *feet* of the player, not the
-// silhouette. The player slides naturally past desks and chairs.
+// Collider rects (tight to the player's feet — see player.js footprint).
 const COLLIDERS = [
-  // Back wall (anything above y=46 is wall area).
+  // Back wall.
   { x: 0, y: 0, w: 288, h: 46 },
   // Side walls.
-  { x: 0, y: 46, w: 6, h: 134 },
-  { x: 282, y: 46, w: 6, h: 134 },
-  // Bottom wall — leaves an opening (door) in the middle.
+  { x: 0, y: 46, w: 6, h: 122 },
+  { x: 282, y: 46, w: 6, h: 122 },
+  // Bottom walls with door gap.
   { x: 0, y: 168, w: 126, h: 12 },
   { x: 162, y: 168, w: 126, h: 12 },
-  // Booth (left).
-  { x: 8, y: 60, w: 42, h: 56 },
+  // Booth.
+  { x: 6, y: 56, w: 42, h: 60 },
+  // Booth-side table.
+  { x: 50, y: 96, w: 16, h: 16 },
   // Desks.
-  { x: 76, y: 92, w: 18, h: 14 },
-  { x: 142, y: 124, w: 18, h: 14 },
-  { x: 214, y: 92, w: 18, h: 14 },
+  { x: 70, y: 100, w: 16, h: 14 },
+  { x: 124, y: 132, w: 16, h: 14 },
+  { x: 180, y: 100, w: 16, h: 14 },
   // Chalkboard easel.
-  { x: 252, y: 138, w: 18, h: 18 },
+  { x: 252, y: 130, w: 20, h: 20 },
+  // Plants.
+  { x: 6, y: 146, w: 14, h: 16 },
+  { x: 268, y: 146, w: 14, h: 16 },
 ];
 
 const SEATS = [
-  // Chairs around the desks + booth seating positions (used by Phase 7
-  // presence to place visiting avatars).
-  { x: 22, y: 116 },   // booth seat 1
-  { x: 22, y: 100 },   // booth seat 2
-  { x: 22, y: 84 },    // booth seat 3
-  { x: 64, y: 100 },   // desk 1 chair (left of desk)
-  { x: 104, y: 100 },  // desk 1 chair (right)
-  { x: 132, y: 132 },  // desk 2 chair (left)
-  { x: 170, y: 132 },  // desk 2 chair (right)
-  { x: 204, y: 100 },  // desk 3 chair (left)
-  { x: 242, y: 100 },  // desk 3 chair (right)
+  // booth (3 spots)
+  { x: 24, y: 76 },
+  { x: 24, y: 96 },
+  { x: 24, y: 116 },
+  // desk chairs
+  { x: 78, y: 90 },
+  { x: 132, y: 122 },
+  { x: 188, y: 90 },
 ];
+
+// Static NPCs — visible in the scene but not interactive yet (Phase 3+).
+export const CAFE_NPCS = [
+  {
+    id: 'barista',
+    x: 212,
+    y: 44,
+    direction: 'down',
+    customization: {
+      skinTone: 'tan',
+      hairColor: '#222',
+      outfitColor: '#c06030',
+      pantsColor: '#2a1a10',
+      bootsColor: '#1a0e08',
+    },
+  },
+  {
+    id: 'booth-customer',
+    x: 24,
+    y: 96,
+    direction: 'down',
+    customization: {
+      skinTone: 'light',
+      hairColor: '#d8a04a',
+      outfitColor: '#3a6a4a',
+      pantsColor: '#2a1a10',
+      bootsColor: '#1a0e08',
+    },
+  },
+  {
+    id: 'desk-customer',
+    x: 188,
+    y: 90,
+    direction: 'down',
+    customization: {
+      skinTone: 'medium',
+      hairColor: '#7a3a5a',
+      outfitColor: '#3a4a7a',
+      pantsColor: '#2a1a10',
+      bootsColor: '#1a0e08',
+    },
+  },
+];
+
+// ─────────────────────── helpers ───────────────────────
+
+function deterministicHash(x, y, seed = 1) {
+  // Stable per-pixel pseudo-random for grain/knot placement.
+  let h = (x * 374761393 + y * 668265263 + seed * 982451653) | 0;
+  h = (h ^ (h >>> 13)) >>> 0;
+  h = Math.imul(h, 1274126177) >>> 0;
+  h = (h ^ (h >>> 16)) >>> 0;
+  return (h % 1000) / 1000;
+}
 
 // ─────────────────────── drawing ───────────────────────
 
 function drawFloor(ctx) {
-  // Base wood color.
-  ctx.fillStyle = COLORS.floor;
-  ctx.fillRect(0, 46, 288, 134);
+  const floorTop = 46;
+  const floorBottom = 180;
+  const plankHeight = 11;
+  let plankIndex = 0;
 
-  // Horizontal plank lines.
-  ctx.fillStyle = COLORS.floorLine;
-  for (let y = 52; y < 180; y += 10) {
+  for (let y = floorTop; y < floorBottom; y += plankHeight) {
+    const isA = plankIndex % 2 === 0;
+    const base = isA ? PALETTE.plankA : PALETTE.plankB;
+    const grain = isA ? PALETTE.plankAGrain : PALETTE.plankBGrain;
+    const highlight = isA ? PALETTE.plankAHighlight : PALETTE.plankBHighlight;
+    const h = Math.min(plankHeight, floorBottom - y);
+
+    // Base fill.
+    ctx.fillStyle = base;
+    ctx.fillRect(0, y, 288, h);
+
+    // Highlight strip across the top of the plank (the lit edge).
+    ctx.fillStyle = highlight;
     ctx.fillRect(0, y, 288, 1);
+
+    // Plank seam at the bottom.
+    ctx.fillStyle = PALETTE.plankSeam;
+    ctx.fillRect(0, y + h - 1, 288, 1);
+
+    // Hand-placed grain marks per plank — same positions each load (hash).
+    ctx.fillStyle = grain;
+    for (let x = 0; x < 288; x += 1) {
+      const r = deterministicHash(x, y, plankIndex + 1);
+      if (r > 0.93) ctx.fillRect(x, y + 2 + Math.floor(r * (h - 4)), 1, 1);
+      if (r > 0.97) ctx.fillRect(x, y + 2 + Math.floor((1 - r) * (h - 4)), 2, 1);
+    }
+
+    // Plank end seams — vertical 1px lines at staggered intervals.
+    const staggerOffset = (plankIndex * 41) % 60;
+    ctx.fillStyle = PALETTE.plankSeam;
+    for (let x = 20 + staggerOffset; x < 288; x += 60) {
+      ctx.fillRect(x, y, 1, h - 1);
+    }
+
+    plankIndex++;
+  }
+}
+
+function drawWalls(ctx) {
+  // Ceiling (deepest dark).
+  ctx.fillStyle = PALETTE.ceiling;
+  ctx.fillRect(0, 0, 288, 8);
+  ctx.fillStyle = PALETTE.ceilingShadow;
+  ctx.fillRect(0, 8, 288, 4);
+
+  // Back wall — vertical wood paneling.
+  const wallTop = 12;
+  const wallBottom = 44;
+  for (let x = 0; x < 288; x++) {
+    const panelIndex = Math.floor(x / 18);
+    const baseColor = panelIndex % 2 === 0 ? PALETTE.wallA : PALETTE.wallB;
+    ctx.fillStyle = baseColor;
+    ctx.fillRect(x, wallTop, 1, wallBottom - wallTop);
+  }
+  // Panel seams (every 18px).
+  ctx.fillStyle = PALETTE.wallSeam;
+  for (let x = 18; x < 288; x += 18) {
+    ctx.fillRect(x, wallTop, 1, wallBottom - wallTop);
+  }
+  // Top trim row of the wall (just below ceiling).
+  ctx.fillStyle = PALETTE.wallTrim;
+  ctx.fillRect(0, 12, 288, 1);
+  // Subtle grain ticks on the wall.
+  ctx.fillStyle = PALETTE.wallSeam;
+  for (let x = 0; x < 288; x += 1) {
+    const r = deterministicHash(x, 0, 42);
+    if (r > 0.95) {
+      const y = wallTop + 2 + Math.floor(r * 26);
+      ctx.fillRect(x, y, 1, 2);
+    }
   }
 
-  // Staggered seam ticks for depth.
-  const seams = [
-    [16, 56], [60, 66], [110, 56], [160, 66], [210, 56], [256, 66],
-    [32, 76], [88, 86], [140, 76], [200, 86], [252, 76],
-    [24, 96], [76, 106], [120, 96], [180, 106], [232, 96],
-    [8, 116], [70, 126], [128, 116], [196, 126], [264, 116],
-    [44, 136], [104, 146], [156, 136], [220, 146],
-    [20, 156], [88, 166], [148, 156], [212, 166], [268, 156],
-  ];
-  ctx.fillStyle = COLORS.floorSeam;
-  for (const [x, y] of seams) ctx.fillRect(x, y, 1, 6);
+  // Skirting board — 2px trim where wall meets floor.
+  ctx.fillStyle = PALETTE.skirting;
+  ctx.fillRect(0, 44, 288, 2);
+  ctx.fillStyle = PALETTE.skirtingHighlight;
+  ctx.fillRect(0, 44, 288, 1);
 
-  // Highlight band in the warmest light pool (under central lamp).
-  const cx = LAMPS[1].x;
-  const grad = ctx.createRadialGradient(cx, 120, 4, cx, 120, 110);
-  grad.addColorStop(0, 'rgba(255, 200, 120, 0.18)');
-  grad.addColorStop(1, 'rgba(255, 200, 120, 0)');
-  ctx.fillStyle = grad;
-  ctx.fillRect(cx - 110, 60, 220, 130);
+  // Side walls (visible only as a thin strip on left/right edges).
+  ctx.fillStyle = PALETTE.wallA;
+  ctx.fillRect(0, 46, 6, 122);
+  ctx.fillRect(282, 46, 6, 122);
+  ctx.fillStyle = PALETTE.wallSeam;
+  ctx.fillRect(5, 46, 1, 122);
+  ctx.fillRect(282, 46, 1, 122);
+
+  // Bottom walls + door opening.
+  ctx.fillStyle = PALETTE.wallA;
+  ctx.fillRect(0, 168, 126, 12);
+  ctx.fillRect(162, 168, 126, 12);
+  ctx.fillStyle = PALETTE.wallTrim;
+  ctx.fillRect(0, 168, 126, 1);
+  ctx.fillRect(162, 168, 126, 1);
+
+  // Door opening (the dark void you walk out through).
+  ctx.fillStyle = PALETTE.doorDark;
+  ctx.fillRect(126, 168, 36, 12);
+  // Door jambs.
+  ctx.fillStyle = PALETTE.doorJamb;
+  ctx.fillRect(124, 168, 2, 12);
+  ctx.fillRect(162, 168, 2, 12);
+  // Threshold.
+  ctx.fillStyle = PALETTE.doorThreshold;
+  ctx.fillRect(126, 178, 36, 2);
+}
+
+function drawWindow(ctx) {
+  const x = 20;
+  const y = 16;
+  const w = 60;
+  const h = 26;
+
+  // Frame (outer dark).
+  ctx.fillStyle = PALETTE.windowFrame2;
+  ctx.fillRect(x - 3, y - 3, w + 6, h + 6);
+  // Frame (inner mid).
+  ctx.fillStyle = PALETTE.windowFrame1;
+  ctx.fillRect(x - 1, y - 1, w + 2, h + 2);
+
+  // Pane base (warm amber).
+  ctx.fillStyle = PALETTE.windowMid;
+  ctx.fillRect(x, y, w, h);
+
+  // Center is brighter (hand-shaded, no gradient).
+  ctx.fillStyle = PALETTE.windowLight;
+  ctx.fillRect(x + 4, y + 4, w - 8, h - 8);
+
+  // Inner highlights (small hot spots).
+  ctx.fillRect(x + 8, y + 6, 8, 1);
+  ctx.fillRect(x + w - 16, y + 6, 8, 1);
+
+  // Edge darkening on the right + bottom.
+  ctx.fillStyle = PALETTE.windowEdge;
+  ctx.fillRect(x + w - 1, y, 1, h);
+  ctx.fillRect(x, y + h - 1, w, 1);
+
+  // Mullions (cross of panes).
+  ctx.fillStyle = PALETTE.windowFrame2;
+  ctx.fillRect(x + Math.floor(w / 2) - 1, y, 2, h);
+  ctx.fillRect(x, y + Math.floor(h / 2) - 1, w, 2);
+
+  // Sill (a thin warm wood ledge below the window).
+  ctx.fillStyle = PALETTE.woodLight2;
+  ctx.fillRect(x - 4, y + h + 1, w + 8, 2);
+  ctx.fillStyle = PALETTE.woodLight3;
+  ctx.fillRect(x - 4, y + h + 3, w + 8, 1);
+}
+
+function drawCounter(ctx) {
+  const x = 144;
+  const yTopBand = 22;
+  const yFace = 30;
+  const w = 140;
+  const faceH = 18;
+
+  // Counter face (the cabinet front, mid wood).
+  ctx.fillStyle = PALETTE.woodMid2;
+  ctx.fillRect(x, yFace, w, faceH);
+  // Vertical paneling on the front.
+  ctx.fillStyle = PALETTE.woodMid3;
+  for (let px = x + 18; px < x + w; px += 18) {
+    ctx.fillRect(px, yFace + 1, 1, faceH - 2);
+  }
+  // Bottom shadow line.
+  ctx.fillStyle = PALETTE.woodDark2;
+  ctx.fillRect(x, yFace + faceH - 1, w, 1);
+
+  // Counter top (light wood, the bartop surface).
+  ctx.fillStyle = PALETTE.woodLight2;
+  ctx.fillRect(x, yTopBand, w, 8);
+  // Top edge highlight.
+  ctx.fillStyle = PALETTE.woodLight1;
+  ctx.fillRect(x, yTopBand, w, 1);
+  // Front lip (small overhang shadow).
+  ctx.fillStyle = PALETTE.woodMid3;
+  ctx.fillRect(x, yTopBand + 8, w, 1);
+  ctx.fillStyle = PALETTE.woodLight3;
+  ctx.fillRect(x, yTopBand + 7, w, 1);
+
+  // Items on the counter:
+  // Espresso machine (left of center).
+  const emX = x + 28;
+  const emY = yTopBand - 6;
+  ctx.fillStyle = PALETTE.machineMid;
+  ctx.fillRect(emX, emY, 24, 8);
+  ctx.fillStyle = PALETTE.machineDark;
+  ctx.fillRect(emX, emY, 24, 1);
+  ctx.fillRect(emX, emY + 7, 24, 1);
+  ctx.fillStyle = PALETTE.machineHighlight;
+  ctx.fillRect(emX + 1, emY + 1, 22, 1);
+  // Group head (the silver portafilter button).
+  ctx.fillStyle = PALETTE.machineSteel;
+  ctx.fillRect(emX + 8, emY + 2, 3, 4);
+  ctx.fillRect(emX + 16, emY + 2, 3, 4);
+  // Tiny steam dots above.
+  ctx.fillStyle = PALETTE.cupSteam;
+  ctx.fillRect(emX + 10, emY - 2, 1, 1);
+  ctx.fillRect(emX + 17, emY - 3, 1, 1);
+
+  // Cups along the counter top.
+  drawCup(ctx, x + 6, yTopBand + 1, PALETTE.cupRim1);
+  drawCup(ctx, x + 64, yTopBand + 1, PALETTE.cupRim2);
+  drawCup(ctx, x + 92, yTopBand + 1, PALETTE.cupRim3);
+  drawCup(ctx, x + 116, yTopBand + 1, PALETTE.cupRim1);
+  drawCup(ctx, x + 130, yTopBand + 1, PALETTE.cupRim2);
+
+  // Hanging chalkboard above counter (small menu sign).
+  const mbX = x + 72;
+  const mbY = 4;
+  ctx.fillStyle = PALETTE.chalkboardFrame2;
+  ctx.fillRect(mbX, mbY, 26, 14);
+  ctx.fillStyle = PALETTE.chalkboard;
+  ctx.fillRect(mbX + 1, mbY + 1, 24, 12);
+  ctx.fillStyle = PALETTE.chalk;
+  ctx.fillRect(mbX + 3, mbY + 3, 18, 1);
+  ctx.fillRect(mbX + 3, mbY + 6, 14, 1);
+  ctx.fillRect(mbX + 3, mbY + 9, 16, 1);
+  // Two small chains holding it.
+  ctx.fillStyle = PALETTE.lampCord;
+  ctx.fillRect(mbX + 2, 0, 1, mbY);
+  ctx.fillRect(mbX + 23, 0, 1, mbY);
+}
+
+function drawCup(ctx, x, y, rimColor) {
+  // 6×6 cup with handle.
+  ctx.fillStyle = PALETTE.woodDark3;
+  ctx.fillRect(x, y, 6, 6);
+  ctx.fillStyle = PALETTE.cupBody;
+  ctx.fillRect(x + 1, y + 2, 4, 3);
+  ctx.fillStyle = PALETTE.cupBodyShadow;
+  ctx.fillRect(x + 4, y + 2, 1, 3);
+  ctx.fillRect(x + 1, y + 4, 4, 1);
+  ctx.fillStyle = rimColor;
+  ctx.fillRect(x + 1, y + 1, 4, 1);
+  // Handle (1px on the right side).
+  ctx.fillStyle = PALETTE.cupBody;
+  ctx.fillRect(x + 6, y + 2, 1, 2);
+  ctx.fillStyle = PALETTE.cupBodyShadow;
+  ctx.fillRect(x + 6, y + 3, 1, 1);
+}
+
+function drawBoothShadow(ctx) {
+  drawDitheredEllipseShadow(ctx, 28, 120, 28, 4, PALETTE.shadow, { intensity: 0.8 });
+}
+
+function drawBooth(ctx) {
+  const x = 6;
+  const y = 54;
+  const w = 42;
+  const h = 64;
+
+  // Back panel (high padded back).
+  ctx.fillStyle = PALETTE.booth2;
+  ctx.fillRect(x, y, w, h - 14);
+  // Highlight along the top of the cushion.
+  ctx.fillStyle = PALETTE.booth1;
+  ctx.fillRect(x, y, w, 2);
+  // Shadow under the top trim.
+  ctx.fillStyle = PALETTE.booth3;
+  ctx.fillRect(x, y + 2, w, 1);
+  // Tufted dots — small dark pixels in a grid.
+  ctx.fillStyle = PALETTE.booth3;
+  for (let ty = y + 8; ty < y + h - 18; ty += 8) {
+    for (let tx = x + 6; tx < x + w - 6; tx += 8) {
+      ctx.fillRect(tx, ty, 1, 1);
+    }
+  }
+  // Brass tack highlights nearby.
+  ctx.fillStyle = '#b07a4a';
+  for (let ty = y + 8; ty < y + h - 18; ty += 8) {
+    for (let tx = x + 6; tx < x + w - 6; tx += 8) {
+      ctx.fillRect(tx + 1, ty, 1, 1);
+    }
+  }
+
+  // Seat cushion (front, brighter — the part you sit on).
+  const seatY = y + h - 16;
+  ctx.fillStyle = PALETTE.boothCushion1;
+  ctx.fillRect(x, seatY, w, 10);
+  ctx.fillStyle = PALETTE.boothCushion2;
+  ctx.fillRect(x, seatY + 9, w, 1);
+  // Cushion top highlight.
+  ctx.fillStyle = '#7a3e30';
+  ctx.fillRect(x, seatY, w, 1);
+  // Cushion divisions between seats.
+  ctx.fillStyle = PALETTE.boothCushion2;
+  ctx.fillRect(x + 12, seatY, 1, 10);
+  ctx.fillRect(x + 28, seatY, 1, 10);
+
+  // Front face of the booth base (wood plinth under the seat).
+  ctx.fillStyle = PALETTE.woodDark1;
+  ctx.fillRect(x, y + h - 6, w, 6);
+  ctx.fillStyle = PALETTE.woodDark2;
+  ctx.fillRect(x, y + h - 1, w, 1);
+  ctx.fillStyle = PALETTE.woodMid1;
+  ctx.fillRect(x, y + h - 6, w, 1);
+
+  // Booth-side table (the small wooden table next to the booth seats).
+  const tX = 50;
+  const tY = 96;
+  const tW = 16;
+  const tH = 16;
+  // Drop shadow under the table.
+  drawDitheredEllipseShadow(ctx, tX + tW / 2, tY + tH + 1, 10, 2, PALETTE.shadow, { intensity: 0.7 });
+  // Table top.
+  ctx.fillStyle = PALETTE.woodLight2;
+  ctx.fillRect(tX, tY, tW, 5);
+  // Top highlight.
+  ctx.fillStyle = PALETTE.woodLight1;
+  ctx.fillRect(tX, tY, tW, 1);
+  // Edge shadow.
+  ctx.fillStyle = PALETTE.woodLight3;
+  ctx.fillRect(tX, tY + 4, tW, 1);
+  // Apron.
+  ctx.fillStyle = PALETTE.woodMid1;
+  ctx.fillRect(tX, tY + 5, tW, 4);
+  ctx.fillStyle = PALETTE.woodMid3;
+  ctx.fillRect(tX, tY + 8, tW, 1);
+  // Legs (2 visible).
+  ctx.fillStyle = PALETTE.woodDark1;
+  ctx.fillRect(tX + 1, tY + 9, 2, 7);
+  ctx.fillRect(tX + tW - 3, tY + 9, 2, 7);
+  // Small cup on table.
+  drawCup(ctx, tX + 5, tY + 1, PALETTE.cupRim2);
+  // Steam from cup.
+  ctx.fillStyle = PALETTE.cupSteam;
+  ctx.fillRect(tX + 7, tY - 2, 1, 1);
+  ctx.fillRect(tX + 8, tY - 4, 1, 1);
+}
+
+function drawDesk(ctx, dx, dy) {
+  // 3/4 perspective desk: top + apron + 2 visible legs.
+  const w = 16;
+  // Drop shadow.
+  drawDitheredEllipseShadow(ctx, dx + w / 2, dy + 16, 11, 2, PALETTE.shadow, { intensity: 0.7 });
+  // Top surface.
+  ctx.fillStyle = PALETTE.woodLight2;
+  ctx.fillRect(dx, dy, w, 5);
+  // Top highlight strip (the lit edge).
+  ctx.fillStyle = PALETTE.woodLight1;
+  ctx.fillRect(dx, dy, w, 1);
+  // Inset wood-grain line.
+  ctx.fillStyle = PALETTE.woodLight3;
+  ctx.fillRect(dx + 2, dy + 2, w - 4, 1);
+  // Edge shadow.
+  ctx.fillStyle = PALETTE.woodLight3;
+  ctx.fillRect(dx, dy + 4, w, 1);
+  // Apron (the visible front face).
+  ctx.fillStyle = PALETTE.woodMid1;
+  ctx.fillRect(dx, dy + 5, w, 5);
+  // Apron darker shadow on the lower portion.
+  ctx.fillStyle = PALETTE.woodMid2;
+  ctx.fillRect(dx, dy + 8, w, 2);
+  ctx.fillStyle = PALETTE.woodMid3;
+  ctx.fillRect(dx, dy + 9, w, 1);
+  // Legs (2 visible at front corners).
+  ctx.fillStyle = PALETTE.woodDark1;
+  ctx.fillRect(dx + 1, dy + 10, 2, 5);
+  ctx.fillRect(dx + w - 3, dy + 10, 2, 5);
+  ctx.fillStyle = PALETTE.woodDark2;
+  ctx.fillRect(dx + 1, dy + 14, 2, 1);
+  ctx.fillRect(dx + w - 3, dy + 14, 2, 1);
+
+  // Steaming cup on top.
+  drawCup(ctx, dx + 5, dy + 1, PALETTE.cupRim2);
+  ctx.fillStyle = PALETTE.cupSteam;
+  ctx.fillRect(dx + 7, dy - 2, 1, 1);
+  ctx.fillRect(dx + 8, dy - 4, 1, 1);
+}
+
+function drawChair(ctx, cx, cy) {
+  // Small chair behind the desk — drawn at a higher y so it peeks above the desk top.
+  // 8 wide x 8 tall back + small seat hint.
+  // Chair back.
+  ctx.fillStyle = PALETTE.woodDark1;
+  ctx.fillRect(cx, cy, 8, 8);
+  // Back highlight.
+  ctx.fillStyle = PALETTE.woodMid1;
+  ctx.fillRect(cx, cy, 8, 1);
+  // Back inner detail (vertical slat).
+  ctx.fillStyle = PALETTE.woodDark3;
+  ctx.fillRect(cx + 3, cy + 1, 2, 6);
+  // Seat cushion peeking under.
+  ctx.fillStyle = PALETTE.boothCushion1;
+  ctx.fillRect(cx, cy + 8, 8, 2);
+  ctx.fillStyle = PALETTE.boothCushion2;
+  ctx.fillRect(cx, cy + 9, 8, 1);
+}
+
+function drawChalkboardEasel(ctx) {
+  const x = 252;
+  const y = 130;
+  const w = 20;
+  const h = 22;
+  // Drop shadow.
+  drawDitheredEllipseShadow(ctx, x + w / 2, y + h + 2, 12, 3, PALETTE.shadow, { intensity: 0.75 });
+  // Board frame.
+  ctx.fillStyle = PALETTE.chalkboardFrame2;
+  ctx.fillRect(x, y, w, h);
+  // Frame highlight on top.
+  ctx.fillStyle = PALETTE.chalkboardFrame1;
+  ctx.fillRect(x, y, w, 1);
+  ctx.fillRect(x, y, 1, h);
+  // Inner board.
+  ctx.fillStyle = PALETTE.chalkboard;
+  ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
+  // Chalk lines (menu).
+  ctx.fillStyle = PALETTE.chalk;
+  ctx.fillRect(x + 4, y + 5, 12, 1);
+  ctx.fillRect(x + 4, y + 9, 10, 1);
+  ctx.fillRect(x + 4, y + 13, 8, 1);
+  ctx.fillRect(x + 4, y + 17, 12, 1);
+  // Easel legs (A-frame).
+  ctx.fillStyle = PALETTE.chalkboardFrame2;
+  ctx.fillRect(x + 3, y + h, 2, 6);
+  ctx.fillRect(x + w - 5, y + h, 2, 6);
+  ctx.fillStyle = PALETTE.chalkboardFrame1;
+  ctx.fillRect(x + 3, y + h + 5, 2, 1);
+  ctx.fillRect(x + w - 5, y + h + 5, 2, 1);
+}
+
+function drawPlant(ctx, px, py) {
+  const w = 14;
+  // Drop shadow.
+  drawDitheredEllipseShadow(ctx, px + w / 2, py + 16, 10, 2, PALETTE.shadow, { intensity: 0.7 });
+  // Pot.
+  ctx.fillStyle = PALETTE.pot1;
+  ctx.fillRect(px, py + 8, w, 8);
+  // Pot rim (slightly lighter, top band).
+  ctx.fillStyle = '#7a4e26';
+  ctx.fillRect(px, py + 8, w, 1);
+  // Pot shadow side.
+  ctx.fillStyle = PALETTE.pot2;
+  ctx.fillRect(px, py + 14, w, 2);
+  ctx.fillStyle = PALETTE.pot3;
+  ctx.fillRect(px, py + 15, w, 1);
+  // Pot left highlight.
+  ctx.fillStyle = '#a06a3a';
+  ctx.fillRect(px, py + 9, 1, 5);
+
+  // Foliage — several layered leaves.
+  // Base layer (dark).
+  ctx.fillStyle = PALETTE.leafDark;
+  ctx.fillRect(px + 2, py + 4, 10, 5);
+  ctx.fillRect(px, py + 6, 14, 3);
+  // Mid layer.
+  ctx.fillStyle = PALETTE.leafMid;
+  ctx.fillRect(px + 3, py + 2, 8, 5);
+  ctx.fillRect(px + 1, py + 5, 12, 3);
+  // Top leaves (light).
+  ctx.fillStyle = PALETTE.leafLight;
+  ctx.fillRect(px + 4, py, 6, 5);
+  ctx.fillRect(px + 2, py + 4, 10, 2);
+  // Bright leaf highlight.
+  ctx.fillStyle = PALETTE.leafBright;
+  ctx.fillRect(px + 5, py + 1, 2, 1);
+  ctx.fillRect(px + 8, py + 3, 2, 1);
+  ctx.fillRect(px + 3, py + 5, 1, 1);
+  ctx.fillRect(px + 10, py + 6, 1, 1);
 }
 
 function drawRug(ctx) {
-  // Warm rug under the central desk so the floor reads as inviting.
-  const x = 110;
-  const y = 134;
-  const w = 70;
-  const h = 30;
-  ctx.fillStyle = COLORS.rug;
+  const x = 98;
+  const y = 142;
+  const w = 64;
+  const h = 28;
+
+  // Base.
+  ctx.fillStyle = PALETTE.rugBase;
   ctx.fillRect(x, y, w, h);
-  ctx.fillStyle = COLORS.rugTrim;
+
+  // Outer border ribbon.
+  ctx.fillStyle = PALETTE.rugBorder;
   ctx.fillRect(x, y, w, 2);
   ctx.fillRect(x, y + h - 2, w, 2);
   ctx.fillRect(x, y, 2, h);
   ctx.fillRect(x + w - 2, y, 2, h);
-}
 
-function drawWalls(ctx) {
-  // Ceiling band.
-  ctx.fillStyle = COLORS.ceiling;
-  ctx.fillRect(0, 0, 288, 14);
-  // Back wall.
-  ctx.fillStyle = COLORS.wall;
-  ctx.fillRect(0, 14, 288, 32);
-  // Wall trim (skirting along the floor edge).
-  ctx.fillStyle = COLORS.wallTrim;
-  ctx.fillRect(0, 44, 288, 2);
-  // Side walls + bottom wall framing.
-  ctx.fillStyle = COLORS.wall;
-  ctx.fillRect(0, 46, 6, 134);
-  ctx.fillRect(282, 46, 6, 134);
-  ctx.fillRect(0, 168, 126, 12);
-  ctx.fillRect(162, 168, 126, 12);
-  // Door darkness (opening at the bottom).
-  ctx.fillStyle = COLORS.doorDark;
-  ctx.fillRect(126, 168, 36, 12);
-  ctx.fillStyle = COLORS.doorJamb;
-  ctx.fillRect(124, 168, 2, 12);
-  ctx.fillRect(162, 168, 2, 12);
-}
+  // Inner border (darker).
+  ctx.fillStyle = PALETTE.rugInner;
+  ctx.fillRect(x + 4, y + 4, w - 8, 1);
+  ctx.fillRect(x + 4, y + h - 5, w - 8, 1);
+  ctx.fillRect(x + 4, y + 4, 1, h - 8);
+  ctx.fillRect(x + w - 5, y + 4, 1, h - 8);
 
-function drawWindow(ctx) {
-  // Window in the back wall on the left side.
-  const x = 22;
-  const y = 18;
-  const w = 50;
-  const h = 24;
-  ctx.fillStyle = COLORS.windowFrame;
-  ctx.fillRect(x - 2, y - 2, w + 4, h + 4);
-  ctx.fillStyle = COLORS.window;
-  ctx.fillRect(x, y, w, h);
-  ctx.fillStyle = COLORS.windowMullion;
-  ctx.fillRect(x + Math.floor(w / 2) - 1, y, 2, h);
-  ctx.fillRect(x, y + Math.floor(h / 2) - 1, w, 2);
-  // Warm glow spilling onto the wall below the window.
-  const glow = ctx.createRadialGradient(x + w / 2, y + h + 4, 2, x + w / 2, y + h + 4, 60);
-  glow.addColorStop(0, 'rgba(255, 180, 80, 0.32)');
-  glow.addColorStop(1, 'rgba(255, 180, 80, 0)');
-  ctx.fillStyle = glow;
-  ctx.fillRect(x - 40, y, w + 80, h + 60);
-}
-
-function drawCounter(ctx) {
-  // Long counter on the upper-right side. Top in lighter wood, face in darker.
-  const x = 138;
-  const yTop = 30;
-  const yFace = 38;
-  const w = 144;
-  // Face (darker, lower).
-  ctx.fillStyle = COLORS.counterFace;
-  ctx.fillRect(x, yFace, w, 12);
-  // Top (lighter, narrow band).
-  ctx.fillStyle = COLORS.counterTop;
-  ctx.fillRect(x, yTop, w, 10);
-  // Top edge highlight + bottom shadow.
-  ctx.fillStyle = COLORS.counterEdge;
-  ctx.fillRect(x, yTop, w, 1);
-  ctx.fillRect(x, yTop + 9, w, 1);
-  ctx.fillRect(x, yFace + 11, w, 1);
-  // A few cups/jars on the counter top for texture.
-  drawCup(ctx, x + 10, yTop + 2, '#d8a040');
-  drawCup(ctx, x + 22, yTop + 2, '#a85a3a');
-  drawCup(ctx, x + 96, yTop + 2, '#5a3a1a');
-  drawCup(ctx, x + 110, yTop + 2, '#d8a040');
-  drawCup(ctx, x + 130, yTop + 2, '#a85a3a');
-  // Espresso machine silhouette.
-  ctx.fillStyle = '#3a2418';
-  ctx.fillRect(x + 60, yTop - 4, 22, 14);
-  ctx.fillStyle = '#1a0e08';
-  ctx.fillRect(x + 60, yTop - 4, 22, 1);
-  ctx.fillStyle = '#d8c8a0';
-  ctx.fillRect(x + 63, yTop, 2, 2);
-  ctx.fillRect(x + 77, yTop, 2, 2);
-}
-
-function drawCup(ctx, x, y, rim) {
-  ctx.fillStyle = '#1a0e08';
-  ctx.fillRect(x, y, 6, 6);
-  ctx.fillStyle = rim;
-  ctx.fillRect(x + 1, y + 1, 4, 1);
-  ctx.fillStyle = '#5a3a1a';
-  ctx.fillRect(x + 1, y + 2, 4, 4);
-}
-
-function drawBooth(ctx) {
-  // Booth on the left: tall padded back + seat cushion + small table edge.
-  const x = 8;
-  const y = 56;
-  const w = 42;
-  const h = 64;
-  // Back panel.
-  ctx.fillStyle = COLORS.booth;
-  ctx.fillRect(x, y, w, h);
-  // Top trim.
-  ctx.fillStyle = COLORS.boothTrim;
-  ctx.fillRect(x, y, w, 2);
-  // Seat cushion (slightly brighter near the front so it reads as a seat).
-  ctx.fillStyle = COLORS.boothSeat;
-  ctx.fillRect(x, y + h - 8, w, 8);
-  ctx.fillStyle = COLORS.boothTrim;
-  ctx.fillRect(x, y + h - 9, w, 1);
-  // Three pillow seat dividers.
-  ctx.fillStyle = COLORS.boothTrim;
-  for (const sy of [y + 16, y + 32, y + 48]) {
-    ctx.fillRect(x, sy, w, 1);
+  // Center motifs (3 small diamonds).
+  ctx.fillStyle = PALETTE.rugMotif;
+  for (let i = 0; i < 3; i++) {
+    const mx = x + 14 + i * 18;
+    const my = y + h / 2 - 1;
+    ctx.fillRect(mx + 1, my - 2, 2, 1);
+    ctx.fillRect(mx, my - 1, 4, 1);
+    ctx.fillRect(mx - 1, my, 6, 1);
+    ctx.fillRect(mx, my + 1, 4, 1);
+    ctx.fillRect(mx + 1, my + 2, 2, 1);
   }
-  // Tiny table edge next to the booth (suggests a built-in table).
-  ctx.fillStyle = COLORS.counterTop;
-  ctx.fillRect(x + w + 2, y + 30, 8, 4);
-  ctx.fillStyle = COLORS.counterEdge;
-  ctx.fillRect(x + w + 2, y + 30, 8, 1);
-  ctx.fillRect(x + w + 2, y + 33, 8, 1);
-}
 
-function drawDesks(ctx) {
-  for (const [x, y] of [[76, 92], [142, 124], [214, 92]]) {
-    const w = 18;
-    const h = 14;
-    // Top surface (lighter).
-    ctx.fillStyle = COLORS.deskTop;
-    ctx.fillRect(x, y, w, h - 4);
-    // Apron (darker).
-    ctx.fillStyle = COLORS.desk;
-    ctx.fillRect(x, y + h - 4, w, 4);
-    // Edges.
-    ctx.fillStyle = COLORS.deskShadow;
-    ctx.fillRect(x, y, w, 1);
-    ctx.fillRect(x, y + h - 1, w, 1);
-    ctx.fillRect(x, y, 1, h);
-    ctx.fillRect(x + w - 1, y, 1, h);
-    // Small steaming cup on the desk for life.
-    drawSteamingCup(ctx, x + 4, y + 2);
-
-    // Chairs (only the front-facing chair is drawn behind the desk; the player
-    // can sit on either side, but only the back-side chair is rendered behind
-    // furniture — the front chair is part of the foreground layer in
-    // drawForeground so it doesn't get drawn under the player).
-    // Back chair.
-    ctx.fillStyle = COLORS.chair;
-    ctx.fillRect(x + 5, y - 6, 8, 6);
-    ctx.fillStyle = COLORS.chairShadow;
-    ctx.fillRect(x + 5, y - 6, 8, 1);
+  // Fringe at top + bottom.
+  ctx.fillStyle = PALETTE.rugBorder;
+  for (let fx = x + 2; fx < x + w - 2; fx += 3) {
+    ctx.fillRect(fx, y - 1, 2, 1);
+    ctx.fillRect(fx, y + h, 2, 1);
   }
 }
 
-function drawSteamingCup(ctx, x, y) {
-  ctx.fillStyle = '#1a0e08';
-  ctx.fillRect(x, y, 6, 5);
-  ctx.fillStyle = '#5a3a1a';
-  ctx.fillRect(x + 1, y + 1, 4, 3);
-  ctx.fillStyle = '#fff8d8';
-  ctx.fillRect(x + 1, y, 1, 1);
-  ctx.fillRect(x + 4, y, 1, 1);
-}
-
-function drawChalkboard(ctx) {
-  const x = 250;
-  const y = 134;
-  const w = 22;
-  const h = 22;
-  // Frame.
-  ctx.fillStyle = COLORS.chalkboardFrame;
-  ctx.fillRect(x, y, w, h);
-  // Board.
-  ctx.fillStyle = COLORS.chalkboard;
-  ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
-  // Chalk text lines.
-  ctx.fillStyle = COLORS.chalk;
-  ctx.fillRect(x + 4, y + 5, 13, 1);
-  ctx.fillRect(x + 4, y + 9, 10, 1);
-  ctx.fillRect(x + 4, y + 13, 14, 1);
-  // Easel legs.
-  ctx.fillStyle = COLORS.chalkboardFrame;
-  ctx.fillRect(x + 3, y + h, 2, 6);
-  ctx.fillRect(x + w - 5, y + h, 2, 6);
-}
-
-function drawPlants(ctx) {
-  // A potted plant in the lower-left corner.
-  ctx.fillStyle = COLORS.plantPot;
-  ctx.fillRect(54, 156, 12, 8);
-  ctx.fillStyle = '#3a2418';
-  ctx.fillRect(54, 156, 12, 1);
-  ctx.fillStyle = COLORS.plant;
-  ctx.fillRect(56, 148, 8, 8);
-  ctx.fillRect(54, 150, 12, 4);
-  ctx.fillStyle = '#588a2a';
-  ctx.fillRect(58, 150, 4, 4);
-
-  // Another by the chalkboard.
-  ctx.fillStyle = COLORS.plantPot;
-  ctx.fillRect(232, 156, 10, 8);
-  ctx.fillStyle = COLORS.plant;
-  ctx.fillRect(234, 148, 6, 8);
-  ctx.fillRect(232, 150, 10, 4);
-  ctx.fillStyle = '#588a2a';
-  ctx.fillRect(236, 150, 2, 4);
+function drawCornerShadows(ctx) {
+  // Soft shadows in the upper corners of the wall (depth cue).
+  drawDitheredEllipseShadow(ctx, 0, 22, 30, 22, 'rgba(0, 0, 0, 1)', { intensity: 0.5 });
+  drawDitheredEllipseShadow(ctx, 288, 22, 30, 22, 'rgba(0, 0, 0, 1)', { intensity: 0.5 });
+  // Soft shadow under the counter.
+  drawDitheredEllipseShadow(ctx, 214, 52, 80, 5, 'rgba(0, 0, 0, 1)', { intensity: 0.55 });
 }
 
 function drawLamps(ctx) {
   for (const lamp of LAMPS) {
-    // Cord from ceiling.
-    ctx.fillStyle = COLORS.lampCord;
+    // Cord from ceiling to lamp.
+    ctx.fillStyle = PALETTE.lampCord;
     ctx.fillRect(lamp.x, 0, 1, lamp.y - 3);
-
-    // Glow halo.
-    const halo = ctx.createRadialGradient(
-      lamp.x, lamp.y, 1,
-      lamp.x, lamp.y, lamp.glowRadius
-    );
-    halo.addColorStop(0, 'rgba(255, 200, 110, 0.55)');
-    halo.addColorStop(0.4, 'rgba(255, 160, 60, 0.18)');
-    halo.addColorStop(1, 'rgba(255, 140, 40, 0)');
-    ctx.fillStyle = halo;
-    ctx.fillRect(
-      lamp.x - lamp.glowRadius,
-      lamp.y - lamp.glowRadius,
-      lamp.glowRadius * 2,
-      lamp.glowRadius * 2
-    );
-
-    // Lamp cap + bulb.
-    ctx.fillStyle = COLORS.lampCap;
+    // Lamp shell (small dark cap).
+    ctx.fillStyle = PALETTE.bulbShell;
     ctx.fillRect(lamp.x - 2, lamp.y - 4, 5, 2);
-    ctx.fillStyle = COLORS.bulb;
+    ctx.fillStyle = PALETTE.woodDark2;
+    ctx.fillRect(lamp.x - 2, lamp.y - 5, 5, 1);
+    // Bulb.
+    ctx.fillStyle = PALETTE.warmHaloCore;
     ctx.fillRect(lamp.x - 1, lamp.y - 2, 3, 4);
-    ctx.fillStyle = COLORS.bulbCore;
-    ctx.fillRect(lamp.x, lamp.y - 1, 1, 1);
+    ctx.fillStyle = PALETTE.bulbCore;
+    ctx.fillRect(lamp.x, lamp.y - 1, 1, 2);
+
+    // Dithered halos — three layered passes for richness.
+    drawDitheredHalo(ctx, lamp.x, lamp.y, 6, PALETTE.warmHaloCore, { falloff: 2, intensity: 1.4 });
+    drawDitheredHalo(ctx, lamp.x, lamp.y + 1, lamp.haloR * 0.45, PALETTE.warmHaloMid, { falloff: 1.2, intensity: 0.65 });
+    drawDitheredHalo(ctx, lamp.x, lamp.y + 4, lamp.haloR, PALETTE.warmHaloFar, { falloff: 0.7, intensity: 0.4 });
+  }
+}
+
+function drawFloorPools(ctx) {
+  // Warm reflected pools under each lamp on the floor.
+  for (const lamp of LAMPS) {
+    drawDitheredFloorPool(ctx, lamp.x, 120, 50, 22, PALETTE.warmHaloMid, {
+      intensity: 0.4,
+      falloff: 1.4,
+    });
+    drawDitheredFloorPool(ctx, lamp.x, 130, 70, 36, PALETTE.warmHaloFar, {
+      intensity: 0.22,
+      falloff: 1.6,
+    });
   }
 }
 
@@ -413,18 +795,33 @@ export const cafe = {
   spawn: { x: 144, y: 162 },
   seats: SEATS,
   colliders: COLLIDERS,
+  npcs: CAFE_NPCS,
   drawBackground(ctx /*, t */) {
     drawFloor(ctx);
+    drawFloorPools(ctx);
     drawRug(ctx);
     drawWalls(ctx);
     drawWindow(ctx);
     drawCounter(ctx);
     drawBooth(ctx);
-    drawDesks(ctx);
-    drawChalkboard(ctx);
-    drawPlants(ctx);
+    drawChalkboardEasel(ctx);
+    drawDesk(ctx, 70, 100);
+    drawDesk(ctx, 124, 132);
+    drawDesk(ctx, 180, 100);
+    drawChair(ctx, 73, 90);
+    drawChair(ctx, 127, 122);
+    drawChair(ctx, 183, 90);
+    drawPlant(ctx, 6, 146);
+    drawPlant(ctx, 268, 146);
+    drawCornerShadows(ctx);
   },
   drawForeground(ctx /*, t */) {
+    // Vignette first — anchors the scene with subtle corner darkening.
+    drawCornerVignette(ctx, 0, 0, 288, 180, PALETTE.vignette, {
+      intensity: 0.32,
+      falloff: 3.4,
+    });
+    // Lamps drawn LAST so their halos read brightly over the vignette.
     drawLamps(ctx);
   },
 };

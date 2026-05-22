@@ -1,3 +1,5 @@
+import { drawDitheredEllipseShadow } from './dither.js';
+
 /**
  * Chibi character sprite renderer.
  *
@@ -229,6 +231,17 @@ export function drawChibi(ctx, opts) {
   const sprite = buildSpriteCanvas(directionKey, frame, palette);
   const drawX = Math.floor(x - SPRITE_W / 2);
   const drawY = Math.floor(y - SPRITE_H);
+
+  // Dithered ground shadow under the feet — anchors the character to the floor.
+  drawDitheredEllipseShadow(
+    ctx,
+    Math.round(x),
+    Math.round(y) - 1,
+    5,
+    2,
+    'rgba(10, 5, 4, 1)',
+    { intensity: 0.85 }
+  );
 
   if (direction === 'left') {
     ctx.save();

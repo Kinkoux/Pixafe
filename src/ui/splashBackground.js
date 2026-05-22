@@ -1,5 +1,10 @@
 import { LOGICAL_WIDTH, LOGICAL_HEIGHT, onDraw } from '../render/canvas.js';
 import { drawChibi } from '../render/sprite.js';
+import {
+  drawDitheredHalo,
+  drawDitheredFloorPool,
+  drawCornerVignette,
+} from '../render/dither.js';
 
 /**
  * Warm dim cozy cafe interior ambient background for the splash screen.
@@ -86,17 +91,14 @@ function drawWindow(ctx) {
   ctx.fillRect(x - 3, y - 3, w + 6, h + 6);
   ctx.fillStyle = COLORS.window;
   ctx.fillRect(x, y, w, h);
+  // Brighter inner panel (hand-shaded).
+  ctx.fillStyle = '#fdd07e';
+  ctx.fillRect(x + 4, y + 4, w - 8, h - 8);
   ctx.fillStyle = COLORS.windowFrame;
   ctx.fillRect(x + Math.floor(w / 2) - 1, y, 2, h);
   ctx.fillRect(x, y + Math.floor(h / 2) - 1, w, 2);
-  const halo = ctx.createRadialGradient(
-    x + w / 2, y + h / 2, 4,
-    x + w / 2, y + h / 2, 70
-  );
-  halo.addColorStop(0, 'rgba(255, 180, 80, 0.32)');
-  halo.addColorStop(1, 'rgba(255, 180, 80, 0)');
-  ctx.fillStyle = halo;
-  ctx.fillRect(x - 70, y - 50, w + 140, h + 110);
+  // Dithered halo on the wall around the window.
+  drawDitheredHalo(ctx, x + w / 2, y + h / 2, 56, '#e89a4a', { falloff: 1.1, intensity: 0.32 });
 }
 
 function drawChalkboard(ctx) {
@@ -122,20 +124,10 @@ function drawLamps(ctx) {
     ctx.fillStyle = COLORS.cord;
     ctx.fillRect(lamp.x, 0, 1, lamp.y - 2);
 
-    const halo = ctx.createRadialGradient(
-      lamp.x, lamp.y, 1,
-      lamp.x, lamp.y, lamp.glowRadius
-    );
-    halo.addColorStop(0, 'rgba(255, 200, 110, 0.55)');
-    halo.addColorStop(0.4, 'rgba(255, 160, 60, 0.18)');
-    halo.addColorStop(1, 'rgba(255, 140, 40, 0)');
-    ctx.fillStyle = halo;
-    ctx.fillRect(
-      lamp.x - lamp.glowRadius,
-      lamp.y - lamp.glowRadius,
-      lamp.glowRadius * 2,
-      lamp.glowRadius * 2
-    );
+    // Dithered halo — three layered passes for richness, no gradients.
+    drawDitheredHalo(ctx, lamp.x, lamp.y, 5, '#fff4c8', { falloff: 2, intensity: 1.4 });
+    drawDitheredHalo(ctx, lamp.x, lamp.y + 1, lamp.glowRadius * 0.45, '#e89a4a', { falloff: 1.2, intensity: 0.6 });
+    drawDitheredHalo(ctx, lamp.x, lamp.y + 4, lamp.glowRadius, '#a85a3a', { falloff: 0.7, intensity: 0.35 });
 
     ctx.fillStyle = '#2a1810';
     ctx.fillRect(lamp.x - 2, lamp.y - 4, 5, 2);
@@ -148,11 +140,7 @@ function drawLamps(ctx) {
 function drawFloorPool(ctx) {
   const cx = LAMPS[1].x;
   const cy = LOGICAL_HEIGHT - 20;
-  const pool = ctx.createRadialGradient(cx, cy, 4, cx, cy, 80);
-  pool.addColorStop(0, 'rgba(255, 180, 80, 0.18)');
-  pool.addColorStop(1, 'rgba(255, 180, 80, 0)');
-  ctx.fillStyle = pool;
-  ctx.fillRect(cx - 80, cy - 30, 160, 50);
+  drawDitheredFloorPool(ctx, cx, cy, 80, 22, '#e89a4a', { intensity: 0.32, falloff: 1.5 });
 }
 
 function drawSplashChibi(ctx) {
@@ -201,6 +189,11 @@ function buildCachedScene() {
   drawChalkboard(c);
   drawFloorPool(c);
   drawSplashChibi(c);
+  // Vignette before lamps so lamp halos read brightly over the corner darkening.
+  drawCornerVignette(c, 0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT, 'rgba(0,0,0,1)', {
+    intensity: 0.32,
+    falloff: 3.4,
+  });
   drawLamps(c);
 
   return off;

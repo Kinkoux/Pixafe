@@ -52,18 +52,29 @@ export function mountWorld({ locationId = 'cafe', customization } = {}) {
     step(dt, location);
 
     // Render layers in order:
-    //   background (floor / walls / back furniture)
-    //   player
-    //   foreground (hanging lamps, tall objects that overlap the player)
+    //   background (floor / walls / back furniture + drop shadows)
+    //   characters (player + NPCs, y-sorted so lower entities render in front)
+    //   foreground (hanging lamps, corner vignette — drawn over everything)
     location.drawBackground?.(ctx, t);
 
-    drawChibi(ctx, {
-      x: player.x,
-      y: player.y,
-      direction: player.direction,
-      frame: player.frame,
-      customization: player.customization,
-    });
+    const entities = [
+      {
+        x: player.x,
+        y: player.y,
+        direction: player.direction,
+        frame: player.frame,
+        customization: player.customization,
+      },
+      ...(location.npcs ?? []).map((n) => ({
+        x: n.x,
+        y: n.y,
+        direction: n.direction ?? 'down',
+        frame: 0,
+        customization: n.customization,
+      })),
+    ];
+    entities.sort((a, b) => a.y - b.y);
+    for (const e of entities) drawChibi(ctx, e);
 
     location.drawForeground?.(ctx, t);
 

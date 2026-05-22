@@ -9,11 +9,42 @@ versions track the build phases from the project plan.
 ## [Unreleased]
 
 Planned next: **Phase 3 — Customization**
-- Skin / hair / outfit / accessory picker UI
+- Rich customization (many hats, glasses, outfits + styles)
 - Cozy-pet toggle (sleeping cat on the desk)
 - Persist customization to the user profile
 
 ---
+
+## [0.2.1] — 2026-05-22 — Cafe art-pass + ambient NPCs
+
+### Added
+- **Ambient NPCs**: a barista standing at the counter, a customer in
+  the booth, and a customer at one of the desks. Static for now —
+  Phase 3+ will make them clickable / talkable.
+- **`src/render/dither.js`** — Bayer-pattern dither primitives for
+  hard-edge halos, drop shadows, floor light pools, and corner
+  vignettes. No smooth gradients anywhere in the world canvas.
+- **y-sort layering**: player + NPCs sort by y so the lower entity
+  always renders in front.
+- **Drop shadows** under every major piece of furniture, plus a
+  dithered ground shadow under each chibi.
+
+### Changed
+- Cafe **art pass**:
+  - Floor: alternating plank tones with hand-placed grain and
+    staggered seam ticks.
+  - Walls: vertical wood paneling + grain ticks + skirting board.
+  - Furniture redrawn with 3-tone shading + visible front-face
+    "3/4 perspective" hint (counter face, desk apron, booth plinth).
+  - Counter now has an espresso machine with steam wisps, five
+    distinct cups, and a small hanging chalkboard menu.
+  - Booth: tufted padded back + brass tack highlights + cushion with
+    seat divisions + small built-in side table with a coffee cup.
+  - Plants are bigger and use 4 layered greens.
+  - Rug repainted: muted maroon, cream + dark borders, 3 motifs,
+    fringe at top/bottom.
+- Splash background converted to dithered halos + dithered floor pool +
+  dithered corner vignette to match the world art language.
 
 ## [0.2.0] — 2026-05-22 — Phase 2: Walkable Cafe
 
