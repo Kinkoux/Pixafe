@@ -5,6 +5,7 @@
 
 const initialState = {
   user: null,                // { id, isAnonymous, offline? }
+  displayName: null,         // friend-visible name; set via Create Account modal
   room: null,                // { code, hostUserId? }
   locationId: 'cafe',
   stationId: 'cafe-buzz',

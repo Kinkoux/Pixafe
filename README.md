@@ -61,7 +61,7 @@ the full phased plan with locations, audio stations, and bonus features.
 Quick checklist:
 
 - [x] **Phase 0** — Scaffold (Vite, folders, stubs, Supabase client)
-- [ ] **Phase 1** — Splash / login (rotating splash, anon auth, room enter/create)
+- [x] **Phase 1** — Splash / login (Stardew sign + Minecraft layout, anon auth, create account, room enter/create)
 - [ ] **Phase 2** — Canvas engine + Cafe scene (animated character)
 - [ ] **Phase 3** — Customization + cozy-pet toggle
 - [ ] **Phase 4** — Pomodoro + status line + growing plant

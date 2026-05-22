@@ -1,23 +1,29 @@
 import { initCanvas } from './render/canvas.js';
-import { LOCATIONS } from './locations/_index.js';
-import { stationManager } from './audio/stationManager.js';
+import { store } from './state/store.js';
+import { mountSplash } from './ui/splash.js';
+import { getStoredDisplayName } from './lib/auth.js';
 
 const sceneCanvas = document.getElementById('scene');
 const uiRoot = document.getElementById('ui-root');
 
 initCanvas(sceneCanvas);
 
-const banner = document.createElement('div');
-banner.className = 'phase0-banner';
-banner.innerHTML = `
-  PIXAFÉ
-  <small>
-    phase 0 scaffold ready · ${LOCATIONS.length} location stubs · ${stationManager.list().length} station stubs
-    <br/>warm pixels, good company
-  </small>
-`;
-uiRoot.appendChild(banner);
+// Hydrate any previously-saved display name so the splash screen reflects it.
+getStoredDisplayName()
+  .then((name) => {
+    if (name) store.set({ displayName: name });
+  })
+  .catch(() => {
+    /* offline or session not yet established — fine */
+  });
 
+// Defensive: clear any prior overlay nodes left behind by a stale HMR session.
+uiRoot.innerHTML = '';
+
+mountSplash(uiRoot);
+
+// Force a full reload when this entry module changes, so we don't end up with
+// duplicated DOM from a previous mount.
 if (import.meta.hot) {
-  import.meta.hot.accept();
+  import.meta.hot.invalidate();
 }

@@ -2,14 +2,24 @@
   --bg-deep: #1a1410;
   --bg-warm: #3a2a1f;
   --bg-card: #5a3f2c;
+
+  --wood-1: #b07a4a;
+  --wood-2: #8a5a2a;
+  --wood-3: #5a3a1a;
+  --wood-shadow: #2a1a0a;
+  --wood-highlight: #d8a766;
+
   --ink: #f4e4c1;
   --ink-dim: #c9b58a;
+  --ink-soft: rgba(244, 228, 193, 0.65);
+
   --accent: #f0c060;
   --accent-warm: #e89a4a;
   --accent-yellow: #ffd84a;
   --accent-shadow: #8a5a2a;
   --good: #9acc6a;
-  --soft: rgba(255, 220, 160, 0.08);
+  --leaf-1: #6aa84a;
+  --leaf-2: #4a7a30;
 
   --font-ui: 'Silkscreen', monospace;
   --font-body: 'VT323', monospace;
@@ -56,7 +66,6 @@ body {
   image-rendering: -moz-crisp-edges;
   image-rendering: crisp-edges;
   background: var(--bg-card);
-  /* Initial scale; canvas.js will set integer-multiple sizing at runtime. */
   width: min(96vw, 1152px);
   height: auto;
   aspect-ratio: 288 / 180;
@@ -76,31 +85,417 @@ body {
   pointer-events: auto;
 }
 
-/* Phase 0 placeholder banner — removed once Phase 1 lands. */
-.phase0-banner {
+/* ─────────────── splash screen ─────────────── */
+
+.splash-screen {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6vh;
+  padding: clamp(16px, 4vh, 32px);
   font-family: var(--font-ui);
-  font-size: 14px;
-  color: var(--accent-yellow);
-  text-shadow: 2px 2px 0 var(--bg-deep);
-  letter-spacing: 1px;
   text-align: center;
-  line-height: 1.6;
+  transition: opacity 0.4s ease-out;
 }
 
-.phase0-banner small {
-  display: block;
-  margin-top: 8px;
-  font-family: var(--font-body);
-  font-size: 22px;
-  color: var(--ink-dim);
-  letter-spacing: 0;
+.splash-screen--leaving {
+  opacity: 0;
+  pointer-events: none;
 }
+
+.splash-version {
+  position: absolute;
+  bottom: 12px;
+  left: 16px;
+  font-family: var(--font-ui);
+  font-size: 10px;
+  color: var(--ink-soft);
+  letter-spacing: 1px;
+  text-shadow: 1px 1px 0 var(--bg-deep);
+}
+
+.splash-footnote {
+  position: absolute;
+  bottom: 12px;
+  right: 16px;
+  font-family: var(--font-body);
+  font-size: 16px;
+  color: var(--ink-soft);
+  letter-spacing: 0.5px;
+  text-shadow: 1px 1px 0 var(--bg-deep);
+}
+
+/* ─── wooden sign logo ─── */
+
+.splash-logo-wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.splash-sign {
+  position: relative;
+  /* `position: relative` is required so .splash-line anchors to the sign. */
+  background:
+    repeating-linear-gradient(
+      180deg,
+      var(--wood-1) 0px,
+      var(--wood-1) 6px,
+      var(--wood-2) 6px,
+      var(--wood-2) 7px,
+      var(--wood-1) 7px,
+      var(--wood-1) 16px,
+      var(--wood-2) 16px,
+      var(--wood-2) 17px
+    );
+  border: 4px solid var(--wood-3);
+  outline: 4px solid var(--wood-shadow);
+  outline-offset: 0;
+  padding: clamp(18px, 4vh, 28px) clamp(32px, 8vw, 64px);
+  box-shadow:
+    inset 0 0 0 2px var(--wood-highlight),
+    8px 10px 0 rgba(0, 0, 0, 0.5);
+  border-radius: 4px;
+  min-width: clamp(280px, 56vw, 540px);
+}
+
+.splash-sign-text {
+  display: inline-block;
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: clamp(40px, 9vw, 88px);
+  letter-spacing: clamp(4px, 1vw, 10px);
+  color: var(--accent-warm);
+  text-shadow:
+    2px 2px 0 var(--wood-shadow),
+    4px 4px 0 rgba(0, 0, 0, 0.45);
+  line-height: 1;
+}
+
+/* nails in each corner */
+.splash-sign-bolt {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: var(--wood-shadow);
+  box-shadow:
+    inset -1px -1px 0 rgba(0, 0, 0, 0.6),
+    inset 1px 1px 0 var(--wood-highlight);
+  border-radius: 50%;
+}
+.splash-sign-bolt--tl { top: 6px; left: 6px; }
+.splash-sign-bolt--tr { top: 6px; right: 6px; }
+.splash-sign-bolt--bl { bottom: 6px; left: 6px; }
+.splash-sign-bolt--br { bottom: 6px; right: 6px; }
+
+/* leaf decorations */
+.splash-sign-leaf {
+  position: absolute;
+  width: 28px;
+  height: 16px;
+  background: var(--leaf-1);
+  box-shadow:
+    inset -2px -1px 0 var(--leaf-2),
+    inset 2px 1px 0 #8fcc6a;
+  border-radius: 60% 10% 60% 10%;
+}
+.splash-sign-leaf--l {
+  top: -10px;
+  left: 18%;
+  transform: rotate(-18deg);
+}
+.splash-sign-leaf--r {
+  bottom: -10px;
+  right: 14%;
+  transform: rotate(160deg);
+}
+
+/* ─── yellow rotated splash line (Minecraft-style) ─── */
+
+.splash-line {
+  position: absolute;
+  /* anchored to bottom-right corner of the sign so it sticks out like
+     Minecraft's "Also try…" splash text. */
+  right: -16px;
+  bottom: -14px;
+  transform: rotate(-18deg);
+  transform-origin: right bottom;
+  font-family: var(--font-ui);
+  font-size: clamp(13px, 1.4vw, 18px);
+  color: var(--accent-yellow);
+  text-shadow:
+    2px 2px 0 var(--wood-shadow),
+    3px 3px 0 rgba(0, 0, 0, 0.55);
+  white-space: nowrap;
+  animation: splash-pulse 1.6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes splash-pulse {
+  0%, 100% { transform: rotate(-18deg) scale(1); transform-origin: right bottom; }
+  50% { transform: rotate(-18deg) scale(1.08); transform-origin: right bottom; }
+}
+
+/* ─── button stack (Minecraft layout) ─── */
+
+.splash-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: stretch;
+  width: min(360px, 80vw);
+}
+
+.splash-btn {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 14px 18px;
+  font-family: var(--font-ui);
+  font-size: clamp(14px, 1.6vw, 18px);
+  letter-spacing: 1.5px;
+  color: var(--ink);
+  text-transform: lowercase;
+  background:
+    linear-gradient(
+      180deg,
+      var(--wood-1) 0%,
+      var(--wood-2) 100%
+    );
+  border: none;
+  cursor: pointer;
+  text-shadow: 1px 1px 0 var(--wood-shadow);
+  box-shadow:
+    inset 0 0 0 2px var(--wood-highlight),
+    inset 0 0 0 4px var(--wood-3),
+    0 4px 0 var(--wood-shadow),
+    0 6px 12px rgba(0, 0, 0, 0.4);
+  border-radius: 2px;
+  transition: transform 0.08s ease-out, filter 0.12s ease-out;
+}
+
+.splash-btn:hover,
+.splash-btn:focus-visible {
+  transform: translateY(-2px);
+  filter: brightness(1.08);
+  outline: none;
+}
+
+.splash-btn:active {
+  transform: translateY(2px);
+  box-shadow:
+    inset 0 0 0 2px var(--wood-highlight),
+    inset 0 0 0 4px var(--wood-3),
+    0 0 0 var(--wood-shadow),
+    0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.splash-btn--ghost {
+  background:
+    linear-gradient(180deg, #3a2a1f 0%, #1a1410 100%);
+  color: var(--ink-dim);
+}
+
+/* ─────────────── modal ─────────────── */
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 6, 4, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 10;
+  animation: fade-in 0.18s ease-out;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal {
+  position: relative;
+  width: min(420px, 92vw);
+  background: var(--bg-warm);
+  border: 4px solid var(--wood-3);
+  outline: 4px solid var(--wood-shadow);
+  padding: 24px 22px 18px;
+  box-shadow:
+    inset 0 0 0 2px var(--wood-highlight),
+    0 12px 36px rgba(0, 0, 0, 0.6);
+  font-family: var(--font-body);
+  color: var(--ink);
+  border-radius: 4px;
+}
+
+.modal-title {
+  font-family: var(--font-ui);
+  font-size: 16px;
+  letter-spacing: 2px;
+  color: var(--accent-warm);
+  text-shadow: 2px 2px 0 var(--wood-shadow);
+  margin-bottom: 14px;
+  text-transform: lowercase;
+}
+
+.modal-close {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  background: transparent;
+  border: none;
+  color: var(--ink-dim);
+  font-family: var(--font-ui);
+  font-size: 22px;
+  cursor: pointer;
+  padding: 4px 8px;
+  line-height: 1;
+}
+.modal-close:hover { color: var(--accent-yellow); }
+
+.modal-hint {
+  font-size: 18px;
+  color: var(--ink-dim);
+  margin-bottom: 14px;
+  line-height: 1.3;
+}
+
+.modal-label {
+  display: block;
+  margin-bottom: 12px;
+}
+.modal-label > span {
+  display: block;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  color: var(--ink-soft);
+  margin-bottom: 6px;
+  text-transform: lowercase;
+}
+
+.modal-input {
+  width: 100%;
+  padding: 10px 12px;
+  font-family: var(--font-body);
+  font-size: 20px;
+  color: var(--ink);
+  background: var(--bg-deep);
+  border: 2px solid var(--wood-3);
+  box-shadow: inset 0 0 0 1px var(--wood-shadow);
+  outline: none;
+  letter-spacing: 1px;
+}
+.modal-input:focus {
+  border-color: var(--accent-warm);
+  box-shadow: inset 0 0 0 1px var(--wood-shadow), 0 0 0 2px rgba(232, 154, 74, 0.4);
+}
+
+.modal-input--code {
+  text-align: center;
+  font-family: var(--font-ui);
+  font-size: 28px;
+  letter-spacing: 12px;
+  text-transform: uppercase;
+}
+
+.modal-error {
+  font-size: 16px;
+  color: #ff8a6a;
+  margin: 8px 0 0;
+  text-shadow: 1px 1px 0 var(--wood-shadow);
+}
+
+.modal-code {
+  text-align: center;
+  font-family: var(--font-ui);
+  font-size: 44px;
+  letter-spacing: 16px;
+  color: var(--accent-warm);
+  text-shadow:
+    2px 2px 0 var(--wood-shadow),
+    4px 4px 0 rgba(0, 0, 0, 0.45);
+  padding: 18px 8px;
+  background: var(--bg-deep);
+  border: 2px dashed var(--wood-2);
+  margin: 6px 0 6px;
+}
+
+.modal-copy-state {
+  font-size: 16px;
+  color: var(--good);
+  min-height: 1.2em;
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+.modal-actions .splash-btn {
+  font-size: 12px;
+  padding: 10px 14px;
+}
+
+/* ─────────────── room placeholder (Phase 2 will replace) ─────────────── */
+
+.room-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 6, 4, 0.55);
+  z-index: 5;
+}
+
+.room-placeholder-inner {
+  text-align: center;
+  background: var(--bg-warm);
+  border: 4px solid var(--wood-3);
+  outline: 4px solid var(--wood-shadow);
+  padding: 24px 32px;
+  box-shadow: inset 0 0 0 2px var(--wood-highlight);
+  border-radius: 4px;
+}
+
+.room-placeholder-eyebrow {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--ink-soft);
+  margin-bottom: 6px;
+}
+.room-placeholder-code {
+  font-family: var(--font-ui);
+  font-size: 38px;
+  letter-spacing: 12px;
+  color: var(--accent-warm);
+  text-shadow: 2px 2px 0 var(--wood-shadow), 4px 4px 0 rgba(0, 0, 0, 0.45);
+  margin-bottom: 12px;
+}
+.room-placeholder-hint {
+  font-family: var(--font-body);
+  font-size: 18px;
+  color: var(--ink-dim);
+  margin-bottom: 16px;
+}
+
+/* ─────────────── accessibility ─────────────── */
 
 @media (prefers-reduced-motion: reduce) {
+  .splash-line {
+    animation: none;
+  }
   * {
     animation-duration: 0.001ms !important;
     transition-duration: 0.001ms !important;
